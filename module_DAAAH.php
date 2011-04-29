@@ -417,9 +417,9 @@ function goBySelectValueForRolback( selname ) {
 		<br />　
 		<div class="split"></div>
 		<table width="450" border="0" cellspacing="0" cellpadding="0">
-			<tr style="height: 24px;"><td width="150"><span class="warning">過去のページ内容</span></td>
+			<tr style="height: 24px;"><td width="150"><span class="warning">公開中プレビュー</span></td>
 			<td>
-				<select id="historyList" name="historyList" class="inputBox" onchange="goBySelectValue('historyList');" style="width:250px">
+				<select id="historyList" name="historyList" class="inputBox" onchange="g過去のページoBySelectValue('historyList');" style="width:250px">
 				<?php echo $s_drop_down_history; ?>
 				</select>を表示
 			</td></tr>
@@ -444,7 +444,7 @@ function goBySelectValueForRolback( selname ) {
 
 	<!-- Preview -->
 	<div class="tab-page" id="tabPreviewNow">
-		<h2 class="tab">編集中のページ内容</h2>
+		<h2 class="tab">承認前プレビュー</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabPreviewNow" ) );</script>
 
 		<table width="96%" border="0"><tr><td>ここには最後に保存した編集内容をプレビューしています。</td></tr>
@@ -455,7 +455,7 @@ function goBySelectValueForRolback( selname ) {
 
 	<!-- Settings -->
 	<div class="tab-page" id="tabPreview">
-		<h2 class="tab">過去のページ内容</h2>
+		<h2 class="tab">公開中プレビュー</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabPreview" ), previewOlddocument );</script>
 
 		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
