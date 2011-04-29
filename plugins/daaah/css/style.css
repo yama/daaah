@@ -1,0 +1,14 @@
+
+del {
+	margin-right: 5px;
+	padding-left: 40px;
+	background: url("images/del.gif") no-repeat left top;
+	color: #cc0000;
+}
+
+ins {
+	margin-left: 5px;
+	padding-left: 40px;
+	background: url("images/ins.gif") no-repeat left top;
+	color: #330099;
+}
