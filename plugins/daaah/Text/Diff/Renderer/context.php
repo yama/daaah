@@ -15,7 +15,8 @@
  */
 
 /** Text_Diff_Renderer */
-require_once 'Text/Diff/Renderer.php';
+global $path;
+require_once($path . 'Text/Diff/Renderer.php');
 
 /**
  * @package Text_Diff
