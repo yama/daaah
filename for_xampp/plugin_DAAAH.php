@@ -109,27 +109,30 @@ $now_role = $_SESSION['mgrRole'];
 // --------------------------------------------------------------------------------------------------------------------------------
 // 現在の承認状況をゲット
 // ----------------------------------------------------------------
-// SQL文構築
-$sql_string_where  = "";
-$sql_string_where .= " id='$contents_id' AND ";
-$sql_string_where .= " ( ";
+if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
 
-$a_add_level = array();
-for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
-	$a_add_level[] = " level=" . ( $count + 1 ) . " ";
-}
-$sql_string_where .= implode( " OR " , $a_add_level );
+	// SQL文構築
+	$sql_string_where  = "";
+	$sql_string_where .= " id='$contents_id' AND ";
+	$sql_string_where .= " ( ";
 
-$sql_string_where .= " ) ";
+	$a_add_level = array();
+	for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
+		$a_add_level[] = " level=" . ( $count + 1 ) . " ";
+	}
+	$sql_string_where .= implode( " OR " , $a_add_level );
 
-// SQL発行
-$result = $modx->db->select('*', $approval_table_name , $sql_string_where );
+	$sql_string_where .= " ) ";
 
-// データ取り出し
-$a_approval = array();
-if( $modx->db->getRecordCount( $result ) >= 1 ) {
-	while( $row = $modx->db->getRow( $result ) ) {
-		$a_approval[ $row['level'] ] = $row['approval'];
+	// SQL発行
+	$result = $modx->db->select('*', $approval_table_name , $sql_string_where );
+
+	// データ取り出し
+	$a_approval = array();
+	if( $modx->db->getRecordCount( $result ) >= 1 ) {
+		while( $row = $modx->db->getRow( $result ) ) {
+			$a_approval[ $row['level'] ] = $row['approval'];
+		}
 	}
 }
 
@@ -444,25 +447,27 @@ switch ($e->name) {
 
 	// 承認履歴をゲット
 	// ----------------------------------------------------------------
-	// SQL文構築
-	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' AND ";
-	$sql_string_where .= " ( ";
+	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " id='$contents_id' AND ";
+		$sql_string_where .= " ( ";
 
-	$a_add_level = array();
-	for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
-		$a_add_level[] = " level=" . ( $count + 1 ) . " ";
+		$a_add_level = array();
+		for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
+			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
+		}
+		$sql_string_where .= implode( " OR " , $a_add_level );
+
+		$sql_string_where .= " ) ";
+
+		$sql_string_orderby = " editedon desc ";
+
+
+
+		// SQL発行
+		$his_result = $modx->db->select('*', $approval_logs_table_name , $sql_string_where , $sql_string_orderby );
 	}
-	$sql_string_where .= implode( " OR " , $a_add_level );
-
-	$sql_string_where .= " ) ";
-
-	$sql_string_orderby = " editedon desc ";
-
-
-
-	// SQL発行
-	$his_result = $modx->db->select('*', $approval_logs_table_name , $sql_string_where , $sql_string_orderby );
 
 	// データ取り出し
 	$s_history = "";
@@ -479,21 +484,24 @@ switch ($e->name) {
 	}
 	$s_history .= '</ul>';
 
-	if( $modx->db->getRecordCount( $his_result ) >= 1 ) {
-		$s_history .= '<div class="split"></div>';
-		$s_history .= '<span class="warning">承認履歴</span>';
-		$s_history .= '<ul>';
-		while( $row = $modx->db->getRow( $his_result ) ) {
-			$s_history .= '<li>';
+	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+		if( $modx->db->getRecordCount( $his_result ) >= 1 ) {
+			$s_history .= '<div class="split"></div>';
+			$s_history .= '<span class="warning">承認履歴</span>';
+			$s_history .= '<ul>';
+			while( $row = $modx->db->getRow( $his_result ) ) {
+				$s_history .= '<li>';
 			$s_history .= iconv('CP932', 'UTF-8', strftime(iconv('UTF-8', 'CP932', '%Y年%m月%d日(%a)%H時%M分%S秒' ) , $row['editedon'] )) . ' : ';
-			$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
-			$s_history .= $level_and_mes [ $row['level'] ] . ' : ';
-			$s_history .= $a_approval_string [ $row['approval'] ];
-			$s_history .= ' :理由　' . $row['comment'];
-			$s_history .= '</li>';
+				$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
+				$s_history .= $level_and_mes [ $row['level'] ] . ' : ';
+				$s_history .= $a_approval_string [ $row['approval'] ];
+				$s_history .= ' :理由　' . $row['comment'];
+				$s_history .= '</li>';
+			}
+			$s_history .= '</ul>';
 		}
-		$s_history .= '</ul>';
 	}
+
 
 
 	// ----------------------------------------------------------------
@@ -543,25 +551,26 @@ switch ($e->name) {
 	// ----------------------------------------------------------------
 	// 履歴データをゲット
 	// ----------------------------------------------------------------
-	// SQL文構築
-	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' ";
+	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " id='$contents_id' ";
 
-	$sql_string_orderby = " editedon desc ";
+		$sql_string_orderby = " editedon desc ";
 
-	// SQL発行
-	$result = $modx->db->select('*', $history_table_name , $sql_string_where , $sql_string_orderby );
+		// SQL発行
+		$result = $modx->db->select('*', $history_table_name , $sql_string_where , $sql_string_orderby );
 
-	// データ取り出し
-	$a_docs = array();
-	if( $modx->db->getRecordCount( $result ) >= 1 ) {
-		while( $row = $modx->db->getRow( $result ) ) {
-			$a_docs[] = $row;
+		// データ取り出し
+		$a_docs = array();
+		if( $modx->db->getRecordCount( $result ) >= 1 ) {
+			while( $row = $modx->db->getRow( $result ) ) {
+				$a_docs[] = $row;
+			}
 		}
-	}
 
-	$pub_his_contents = $a_docs[0];
-	$publish_history_id = intval($pub_his_contents['editedon']);
+		$pub_his_contents = $a_docs[0];
+		$publish_history_id = intval($pub_his_contents['editedon']);
 
 //	ob_start(); // 前段の承認処理を行わないならコメントアウトを取る
 ?>
@@ -575,6 +584,8 @@ switch ($e->name) {
 	</table>
 </div>
 <?php
+
+	}
 
 	$output = ob_get_clean();
 	$e->output($output);
