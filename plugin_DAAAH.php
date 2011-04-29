@@ -1,20 +1,29 @@
-// <?php
-/*
+//<?php
+/**
+ * DAAAH
+ *
+ * 履歴と承認と差分表示のプラグイン
+ *
+ * @category plugin
+ * @version 0.5.3.1
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License (GPL)
+ * @internal @events OnDocFormSave,OnDocFormRender,OnLoadWebPageCache,OnLoadWebDocument,OnDocFormDelete
+ * @internal @modx_category Manager and Admin
+
 --------------------------------------------------------------------------------------------------------------------------------
 「DAAAH」(DiffAndApprovalAndHistory)
 履歴と承認と差分表示のプラグイン
 --------------------------------------------------------------------------------------------------------------------------------
-実行タイミングは
-OnDocFormSave
-OnDocFormRender
-OnLoadWebPageCache
-OnLoadWebDocument
-OnDocFormDelete
+
 */
 
 // ----------------------------------------------------------------
 // イベントトリガーの内容を取得
 // ----------------------------------------------------------------
+
+$daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
+include_once($daaah_path . 'functions.php');
+
 $e = & $modx->Event;
 
 // Webページを表示する場合、引数に「preview_sw」があるときは処理を行わない
@@ -39,8 +48,8 @@ if(substr($manager_theme,-1) == '/') {
 // 設定読み込み
 // ----------------------------------------------------------------
 // 多段階承認の設定ファイルを読み込み
-$config_file = $modx->config['base_path'] . 'assets/plugins/daaah/config.inc.php';
-include($config_file);
+$config_file = $daaah_path . 'config.inc.php';
+include_once($config_file);
 
 // テーブル名と共通変数を設定
 // ----------------------------------------------------------------
@@ -491,7 +500,7 @@ switch ($e->name) {
 			$s_history .= '<ul>';
 			while( $row = $modx->db->getRow( $his_result ) ) {
 				$s_history .= '<li>';
-				$s_history .= strftime ( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ) . ' : ';
+				$s_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ) . ' : ';
 				$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
 				$s_history .= $level_and_mes [ $row['level'] ] . ' : ';
 				$s_history .= $a_approval_string [ $row['approval'] ];

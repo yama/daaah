@@ -20,6 +20,9 @@ global $modx_textdir;
 global $modx_manager_charset;
 global $modx_lang_attribute;
 
+$daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
+include_once($daaah_path . 'functions.php');
+
 if(function_exists("date_default_timezone_set") )date_default_timezone_set("Asia/Tokyo");
 
 // 履歴テーブル
@@ -168,7 +171,7 @@ if( $modx->db->getRecordCount( $result ) >= 1 ) {
 		$s_drop_down_history .= '"';
 		if ( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected="selected"';
 		$s_drop_down_history .= '>';
-		$s_drop_down_history .= strftime ( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
+		$s_drop_down_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
 		$s_drop_down_history .= '</option>';
 
 	}
@@ -297,9 +300,11 @@ if ( ( isset( $rolesw ) ) && ( $rolesw == "role" ) ) {
 // ----------------------------------------------------------------
 // Diffモジュール読み込み
 $path = $modx->config['base_path'] . 'assets/plugins/daaah/';
+global $path;
+$path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 set_include_path(get_include_path() . PATH_SEPARATOR . $path);
-include_once 'Text/Diff.php';
-include_once 'Text/Diff/Renderer/inline.php';
+include_once($path . 'Text/Diff.php');
+include_once($path . 'Text/Diff/Renderer/inline.php');
 $php_errormsg = ""; // ignore php5 strict errors
 
 
@@ -322,7 +327,7 @@ $a_old_page = explode ("\n", $s_old_page);
 
 // Diff開始
 $diff = new Text_Diff($a_old_page ,$a_now_page);
-$renderer = &new Text_Diff_Renderer_inline();
+$renderer = new Text_Diff_Renderer_inline();
 
 
 // Diff結果データ加工
@@ -402,7 +407,7 @@ function goBySelectValueForRolback( selname ) {
 		<h2 class="tab">差分</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabGeneral" ) );</script>
 
-		<span class="warning"><?php echo strftime ( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?></span>に承認を受けた内容と<span class="warning">現在、編集中のページデータ</span>との差分を表示しています。<br />　
+		<span class="warning"><?php echo mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?></span>に承認を受けた内容と<span class="warning">現在、編集中のページデータ</span>との差分を表示しています。<br />
 
 		<div class="split"></div>
 		<br /><span class="warning">本文のみ抽出して差分表示</span><br />　
@@ -453,7 +458,7 @@ function goBySelectValueForRolback( selname ) {
 		<h2 class="tab">過去のページ内容</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabPreview" ), previewOlddocument );</script>
 
-		<table width="96%" border="0"><tr><td>ここには<?php echo strftime ( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
+		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
 			<tr><td><iframe name="preview" frameborder="0" width="100%" height="400" id="previewIframe"></iframe></td></tr>
 
 		</table>
