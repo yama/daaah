@@ -418,7 +418,7 @@ function goBySelectValueForRolback( selname ) {
 		<table width="450" border="0" cellspacing="0" cellpadding="0">
 			<tr style="height: 24px;"><td width="150"><span class="warning">公開中プレビュー</span></td>
 			<td>
-				<select id="historyList" name="historyList" class="inputBox" onchange="g過去のページoBySelectValue('historyList');" style="width:250px">
+				<select id="historyList" name="historyList" class="inputBox" onchange="goBySelectValue('historyList');" style="width:250px">
 				<?php echo $s_drop_down_history; ?>
 				</select>を表示
 			</td></tr>
