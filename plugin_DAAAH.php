@@ -29,20 +29,14 @@ $e = & $modx->Event;
 // Webページを表示する場合、引数に「preview_sw」があるときは処理を行わない
 if (($e->name=="OnLoadWebDocument")||($e->name=="OnLoadWebPageCache")){ 
 	// 処理対象のコンテンツID
-	$contents_id = $modx->documentIdentifier;
+	$docid = $modx->documentIdentifier;
 } else {
-	$contents_id = $e->params['id'];
+	$docid = $e->params['id'];
 
 }
 
 
-global $manager_theme;
-
-if(substr($manager_theme,-1) == '/') {
-	$local_manager_theme = substr($manager_theme,0,-1);
-} else {
-	$local_manager_theme = $manager_theme;
-}
+global $_style, $style_path;
 
 // ----------------------------------------------------------------
 // 設定読み込み
@@ -118,11 +112,11 @@ $now_role = $_SESSION['mgrRole'];
 // --------------------------------------------------------------------------------------------------------------------------------
 // 現在の承認状況をゲット
 // ----------------------------------------------------------------
-if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+if ( $docid != 0 ) { // 新規コンテンツでは表示しない
 
 	// SQL文構築
 	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' AND ";
+	$sql_string_where .= " id='$docid' AND ";
 	$sql_string_where .= " ( ";
 
 	$a_add_level = array();
@@ -150,15 +144,14 @@ if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
 // 処理すべきレベルのON/OFFコントロール
 // ----------------------------------------------------------------
 $level_onoff = array();
-for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
-	$check_role = explode( "/" , $level_and_role [ $count + 1 ] );
-	$level_onoff [ $count + 1 ] = 0;
-	for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ ) {
+for ( $count = 0 ; $count < $approval_level ; $count ++ )
+{
+	$check_role = explode( '/' , $level_and_role[$count + 1]);
+	$level_onoff[$count + 1] = 0;
+	for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
+	{
 		// 当該のレベルに属するRoleの場合はON
-		if ( $check_role [ $chk_count ] == $now_role ) $level_onoff [ $count + 1 ] = 1;
-
-		// admin権限は問答無用にすべてON
-//		if ( $now_role == "1" ) $level_onoff [ $count + 1 ] = 1;
+		if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
 	}
 }
 
@@ -181,24 +174,24 @@ switch ($e->name) {
 
 	// 承認状態確認
 	// ----------------------------------------------------------------
-	$app_result = checkApprovalStatus( $contents_id , $approval_level );
-
+	$app_result = checkApprovalStatus($docid , $approval_level);
 
 	// ----------------------------------------------------------------
 	// 承認処理  -- 開始
 	// ----------------------------------------------------------------
 	$approval_change_flag = 0;
 
-	for ( $count = 0 ; $count < $approval_level ; $count ++ ) { 
+	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	{ 
 		$pub_level = $count + 1;
 		$approval_value = 0;
 		$record_exit_flag = 0;
-		if ( ( $level_onoff [ $pub_level ] == 1 ) || (!$permission) ) {
+		if ( ( $level_onoff[$pub_level] == 1 ) || (!$permission) ) {
 			// フォームから値を取得
 			$form_name  = 'approval_and_level' . $pub_level;
-			$s_approval = ( isset( $_POST[ $form_name ] ) ) ? mysql_escape_string($_POST[ $form_name ]) : '0';
-			$form_name  = 'comment_and_level' . $pub_level;
-			$s_comment  = ( isset( $_POST[ $form_name ] ) ) ? mysql_escape_string($_POST[ $form_name ]) : '';
+			$s_approval = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '0';
+			$form_name  = 'comment_and_level'  . $pub_level;
+			$s_comment  = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '';
 
 			// 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
 			// 「公開しない」にリセットする
@@ -206,11 +199,11 @@ switch ($e->name) {
 
 			// 承認状況更新
 			// DBにレコードがあるかどうか
-			if ( isset ( $a_approval[ $pub_level ] ) ) {
+			if ( isset ( $a_approval[$pub_level] ) ) {
 
 				// SQL文構築
 				$sql_string_where  = "";
-				$sql_string_where .= " id='$contents_id' AND ";
+				$sql_string_where .= " id='$docid' AND ";
 				$sql_string_where .= " level='$pub_level' ";
 
 				$sql_string_update  = "";
@@ -222,7 +215,7 @@ switch ($e->name) {
 
 				// SQL文構築
 				$fields = array(
-					'id'	=> $contents_id,
+					'id'	=> $docid,
 					'level'	=> $pub_level,
 					'approval'	=> $s_approval,
 				);
@@ -233,18 +226,18 @@ switch ($e->name) {
 
 			if ($permission) {
 				$approval_value = 0;
-				if ( isset ( $a_approval[ $pub_level ] ) ) $approval_value = $a_approval[ $pub_level ];
+				if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
 
 				if ( ( $s_approval != $approval_value ) || ( $s_comment != "" ) ) {
 
 					// 承認ステータスに変化があったのでフラグをON
-					if ( isset ( $a_approval[ $pub_level ] ) )  $approval_change_flag = 1;
+					if ( isset ( $a_approval[$pub_level] ) )  $approval_change_flag = 1;
 
 					// 承認履歴更新
 					// SQL文構築
 					$user_id = $modx->getLoginUserID();
 					$fields = array(
-						'id'	=> $contents_id,
+						'id'	=> $docid,
 						'level'	=> $pub_level,
 						'approval'	=> $s_approval,
 						'user_id'	=> $user_id,
@@ -262,11 +255,11 @@ switch ($e->name) {
 	}
 
 	// すべて承認されていた場合、ドキュメントを公開設定にする
-	$app_result = checkApprovalStatus( $contents_id , $approval_level );
+	$app_result = checkApprovalStatus( $docid , $approval_level );
 	if ( $app_result ) {
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' ";
+		$sql_string_where .= " id='$docid' ";
 
 		$sql_array_update = array(
 				'published'	=> 1,
@@ -280,7 +273,7 @@ switch ($e->name) {
 //		// すべて承認していない状態のときは非公開にする
 //		// SQL文構築
 //		$sql_string_where  = "";
-//		$sql_string_where .= " id='$contents_id' ";
+//		$sql_string_where .= " id='$docid' ";
 
 //		$sql_array_update = array(
 //				'published'	=> 0,
@@ -295,7 +288,7 @@ switch ($e->name) {
 		// すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' ";
+		$sql_string_where .= " id='$docid' ";
 
 		$sql_array_update = array(
 				'published'	=> 0,
@@ -315,7 +308,7 @@ switch ($e->name) {
 	// バックアップ処理  -- はじめ
 	// ----------------------------------------------------------------
 	// ドキュメントデータを取得
-	$doc_data = $modx->getDocumentObject( 'id' , $contents_id );
+	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
 	if ($app_result)  { // すべての承認を受けた場合のみ処理
 
@@ -353,22 +346,22 @@ switch ($e->name) {
 
 		// 履歴に登録
 		$sql = "INSERT INTO $history_table_name (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
-						VALUES('" . $contents_id . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+						VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
 
-		$rs = mysql_query($sql);
+		$rs = $modx->db->query($sql);
 
 		// 承認保管箱に登録
 		$sql_app = "REPLACE INTO $approval_content_table_name (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
-						VALUES('" . $contents_id . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+						VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
 
-		$rs_app = mysql_query($sql_app);
+		$rs_app = $modx->db->query($sql_app);
 
 
 		// テンプレート変数データをゲット
 		// ----------------------------------------------------------------
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " contentid ='$contents_id' ";
+		$sql_string_where .= " contentid ='$docid' ";
 
 		// SQL発行
 		$result = $modx->db->select('*', $contentvalues_table_name , $sql_string_where );
@@ -387,10 +380,10 @@ switch ($e->name) {
 		if (!empty($a_tvs)) {
 			// テンプレート変数履歴に登録
 			$sql = 'INSERT INTO '.$contentvalues_history_table_name.' (id,tmplvarid, contentid, value, editedon) VALUES '.implode(',', $a_tvs);
-			$rs = mysql_query($sql);
+			$rs = $modx->db->query($sql);
 			// テンプレート変数(承認済み保管箱)に登録
 			$sql_app = 'REPLACE INTO '.$contentvalues_approval_table_name.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
-			$rs = mysql_query($sql_app);
+			$rs = $modx->db->query($sql_app);
 		}
 	}
 
@@ -403,7 +396,7 @@ switch ($e->name) {
 		// 承認保管箱に当該のデータが存在するか?
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' ";
+		$sql_string_where .= " id='$docid' ";
 
 		// SQL発行
 		$result = $modx->db->select('*', $approval_content_table_name , $sql_string_where );
@@ -412,7 +405,7 @@ switch ($e->name) {
 		if( $modx->db->getRecordCount( $result ) >= 1 ) {
 			// SQL文構築
 			$sql_string_where  = "";
-			$sql_string_where .= " id='$contents_id' ";
+			$sql_string_where .= " id='$docid' ";
 
 			$sql_array_update = array(
 					'published'	=> $published,
@@ -456,11 +449,11 @@ switch ($e->name) {
 
 	// 承認履歴をゲット
 	// ----------------------------------------------------------------
-	if($contents_id != 0)
+	if($docid != 0)
 	{ // 新規コンテンツでは表示しない
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' AND ";
+		$sql_string_where .= " id='$docid' AND ";
 		$sql_string_where .= " ( ";
 
 		$a_add_level = array();
@@ -485,17 +478,18 @@ switch ($e->name) {
 	$s_history .= '<div class="split"></div>';
 	$s_history .= '<span class="warning">現在の承認状況</span>';
 	$s_history .= '<ul>';
-	for ( $count = 0 ; $count < $approval_level ; $count ++ ) { 
+	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	{ 
 		$pub_level = $count + 1;
 		$approval_value = 0;
-		if ( isset ( $a_approval[ $pub_level ] ) ) $approval_value = $a_approval[ $pub_level ];
+		if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
 		$s_history .= '<li>';
-		$s_history .= $level_and_mes [ $pub_level ] . ':' . $a_approval_string [ $approval_value ] . '<br />';
+		$s_history .= $level_and_mes[$pub_level] . ':' . $a_approval_string[ $approval_value ] . '<br />';
 		$s_history .= '</li>';
 	}
 	$s_history .= '</ul>';
 
-	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+	if ( $docid != 0 ) { // 新規コンテンツでは表示しない
 		if( $modx->db->getRecordCount( $his_result ) >= 1 ) {
 			$s_history .= '<div class="split"></div>';
 			$s_history .= '<span class="warning">承認履歴</span>';
@@ -504,8 +498,8 @@ switch ($e->name) {
 				$s_history .= '<li>';
 				$s_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ) . ' : ';
 				$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
-				$s_history .= $level_and_mes [ $row['level'] ] . ' : ';
-				$s_history .= $a_approval_string [ $row['approval'] ];
+				$s_history .= $level_and_mes[ $row['level'] ] . ' : ';
+				$s_history .= $a_approval_string[ $row['approval'] ];
 				$s_history .= ' :理由　' . $row['comment'];
 				$s_history .= '</li>';
 			}
@@ -520,29 +514,42 @@ switch ($e->name) {
 <div class="sectionHeader">承認</div>
 <div class="sectionBody">
 	<div style="width:100%">
+<?php
+	if ($permission)
+	{
+?>
 		<table width="550" border="0" cellspacing="0" cellpadding="0">
 <?php
-	if ($permission) {
-		for ( $count = 0 ; $count < $approval_level ; $count ++ ) { 
+		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		{
 			$pub_level = $count + 1;
 			$approval_value = 0;
-			if ( isset ( $a_approval[ $pub_level ] ) ) $approval_value = $a_approval[ $pub_level ];
-			if ( $level_onoff [ $pub_level ] == 1 ) {
+			if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
+			if ( $level_onoff[$pub_level] == 1 )
+			{
 ?>
-			<tr style="height: 24px;"><td><span class="warning"><?php echo $level_and_mes [ $pub_level ]?></span></td>
-				<td><select name="approval_and_level<?php echo $pub_level?>" onchange="documentDirty=true;">
-				<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''?>><?php echo $a_approval_string [ 0 ] ?></option>
-				<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''?>><?php echo $a_approval_string [ 1 ] ?></option>
-				</select>
-				</td><td><span class="warning">理由</span></td><td>
-				<input name="comment_and_level<?php echo $pub_level?>" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
-				&nbsp;&nbsp;<img src="media/style/<?php echo $local_manager_theme?>/images/icons/b02_trans.gif" onmouseover="this.src='media/style/<?php echo $local_manager_theme?>/images/icons/b02.gif';" onmouseout="this.src='media/style/<?php echo $local_manager_theme?>/images/icons/b02_trans.gif';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;" /></td></tr>
+			<tr style="height: 24px;">
+				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
+				<td>
+					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
+						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
+						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
+					</select>
+				</td>
+				<td><span class="warning">理由</span></td>
+				<td>
+					<input name="comment_and_level<?php echo $pub_level?>" type="text" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
+					<img src="<?php echo $_style['icons_tooltip_over']; ?>" onmouseover="this.src='<?php echo $_style['icons_tooltip']     ; ?>';" onmouseout="this.src='<?php echo $_style['icons_tooltip_over']; ?>';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;margin-left:8px;" />
+				</td>
+			</tr>
 <?php
 			}
 		}
+?>
+	</table>
+<?php
 	}
 ?>
-		</table>
 <?php echo $s_history ?>
 
 	</div>
@@ -560,10 +567,10 @@ switch ($e->name) {
 	// ----------------------------------------------------------------
 	// 履歴データをゲット
 	// ----------------------------------------------------------------
-	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+	if ( $docid != 0 ) { // 新規コンテンツでは表示しない
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' ";
+		$sql_string_where .= " id='$docid' ";
 
 		$sql_string_orderby = " editedon desc ";
 
@@ -588,7 +595,7 @@ switch ($e->name) {
 
 	<table cellpadding="0" cellspacing="0" class="actionButtons">
 		<tr>
-			<td id="Button5__"><a href="<?php echo "index.php?a=112&id=$module_id&contid=$contents_id&hisid=$publish_history_id"; ?>"><img src="media/style/<?php echo $manager_theme ? "$manager_theme/":""; ?>images/icons/next.gif" align="absmiddle" /> 編集中ドキュメントの更新履歴/差分表示</a></td>
+			<td id="Button5__"><a href="<?php echo "index.php?a=112&id=$module_id&docid=$docid&hisid=$publish_history_id"; ?>"><img src="<?php echo $style_path; ?>icons/next.gif" align="absmiddle" /> 編集中ドキュメントの更新履歴/差分表示</a></td>
 		</tr>
 	</table>
 </div>
@@ -612,7 +619,7 @@ switch ($e->name) {
 	case "OnLoadWebDocument":
 
 	// 当該のコンテンツIDを取得
-	$contents_id = $modx->documentIdentifier;
+	$docid = $modx->documentIdentifier;
 	if (isset($_REQUEST['hisid'])) {
 		$search_table     = $history_table_name;
 		$search_tvs_table = $contentvalues_history_table_name;
@@ -631,7 +638,7 @@ switch ($e->name) {
 	// ----------------------------------------------------------------
 	// SQL文構築
 	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' ";
+	$sql_string_where .= " id='$docid' ";
 	if ( ( $publish_history_id != 0 ) ) {
 		$sql_string_where .= " AND ";
 		$sql_string_where .= " editedon='$publish_history_id' ";
@@ -680,13 +687,13 @@ switch ($e->name) {
 		$sql= "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
 		$sql .= "FROM " . $modx->getFullTableName("site_tmplvars") . " tv ";
 		$sql .= "INNER JOIN " . $modx->getFullTableName("site_tmplvar_templates")." tvtpl ON tvtpl.tmplvarid = tv.id ";
-		$sql .= "LEFT JOIN " . $search_tvs_table." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $contents_id. "' ";
+		$sql .= "LEFT JOIN " . $search_tvs_table." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
 		$sql .= "WHERE tvtpl.templateid = '" . $doc_data ['template'] . "'";
 		if ( ( $publish_history_id != 0 ) ) {
 			$sql .= " AND ";
 			$sql .= " tvc.editedon = '" . $publish_history_id . "'";
 		}
-		$rs= $modx->dbQuery($sql);
+		$rs= $modx->db->query($sql);
 		$rowCount= $modx->recordCount($rs);
 		if ($rowCount > 0) {
 			for ($i= 0; $i < $rowCount; $i++) {
@@ -722,7 +729,7 @@ switch ($e->name) {
 	case "OnDocFormDelete":
 
 	// ドキュメントデータを取得
-	$doc_data = $modx->getDocumentObject( 'id' , $contents_id );
+	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
 	// 削除状態のときは承認保管箱も削除状態にする。逆のときは同様で非削除に
 	$published       = $doc_data ['published'];
@@ -732,7 +739,7 @@ switch ($e->name) {
 	// 承認保管箱に当該のデータが存在するか?
 	// SQL文構築
 	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' ";
+	$sql_string_where .= " id='$docid' ";
 
 	// SQL発行
 	$result = $modx->db->select('*', $approval_content_table_name , $sql_string_where );
@@ -741,7 +748,7 @@ switch ($e->name) {
 	if( $modx->db->getRecordCount( $result ) >= 1 ) {
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " id='$contents_id' ";
+		$sql_string_where .= " id='$docid' ";
 
 		$sql_array_update = array(
 				'published'	=> $published,
@@ -792,76 +799,7 @@ switch ($e->name) {
 		}
 		next ( $children_id );
 	}
-
-
 	break;
-
-
-
 }
-
-
-// ----------------------------------------------------------------
-// 現在の承認状況をゲット
-// ----------------------------------------------------------------
-function getApprovalStatus( $contents_id , $approval_level ) { 
-	global $modx;
-
-	// 多段階承認テーブル
-	$approval_table_name = $modx->getFullTableName( 'approvals' );
-
-	// SQL文構築
-	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' AND ";
-	$sql_string_where .= " ( ";
-
-	$a_add_level = array();
-	for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
-		$a_add_level[] = " level=" . ( $count + 1 ) . " ";
-	}
-	$sql_string_where .= implode( " OR " , $a_add_level );
-
-	$sql_string_where .= " ) ";
-
-	// SQL発行
-	$result = $modx->db->select('*', $approval_table_name , $sql_string_where );
-
-	// データ取り出し
-	$a_approval = array();
-	if( $modx->db->getRecordCount( $result ) >= 1 ) {
-		while( $row = $modx->db->getRow( $result ) ) {
-			$a_approval[ $row['level'] ] = $row['approval'];
-		}
-	}
-
-	return ( $a_approval );
-
-}
-
-
-// ----------------------------------------------------------------
-// 現在の承認状況をチェック
-// ----------------------------------------------------------------
-function checkApprovalStatus( $contents_id , $approval_level ) { 
-	global $modx;
-
-	$result = FALSE;
-	$a_approval = getApprovalStatus( $contents_id , $approval_level );
-
-	// 1が｢承認｣のため、すべて承認されている場合は
-	// $approval_levelとイコールになる
-	for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
-		if ( isset ( $a_approval[ $count + 1 ] ) ) {
-			$approval_value += intval( $a_approval[ $count + 1 ] );
-		}
-	}
-	if ( $approval_level == $approval_value ) $result = TRUE;
-
-	return ( $result );
-
-}
-
-// ----------------------------------------------------------------
-
 
 // ?>

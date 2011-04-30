@@ -22,23 +22,286 @@ global $modx_lang_attribute;
 
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 include_once($daaah_path . 'functions.php');
+include_once($daaah_path . 'config.inc.php');
 
 if(function_exists("date_default_timezone_set"))date_default_timezone_set("Asia/Tokyo");
 
-// 履歴テーブル
-$history_table_name = $modx->getFullTableName('history_of_site_content');
+$history_table_name                = $modx->getFullTableName( 'history_of_site_content' ); // 履歴テーブル
+$contentvalues_history_table_name  = $modx->getFullTableName( 'history_of_site_tmplvar_contentvalues' );// テンプレート変数履歴テーブル
+$content_table_name                = $modx->getFullTableName( 'site_content' );// コンテンツテーブル
+$contentvalues_table_name          = $modx->getFullTableName( 'site_tmplvar_contentvalues' );// テンプレート変数テーブル
+$approval_content_table_name       = $modx->getFullTableName( 'approvaled_site_content' );// コンテンツテーブル(承認済み保管箱)
+$contentvalues_approval_table_name = $modx->getFullTableName( 'approvaled_site_tmplvar_contentvalues' );// テンプレート変数テーブル(承認済み保管箱)
+$approval_table_name               = $modx->getFullTableName( 'approvals' );// 多段階承認テーブル
+$role_table_name                   = $modx->getFullTableName( 'user_roles' );// ユーザーグループテーブル
+$approval_logs_table_name          = $modx->getFullTableName( 'approval_logs' );// 多段階承認履歴テーブル
+$module_table_name                 = $modx->getFullTableName( 'site_modules' );// モジュールテーブル
 
-// テンプレート変数履歴テーブル
-$contentvalues_history_table_name = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');
+$permission = $modx->hasPermission('publish_document');
+$now_role = $_SESSION['mgrRole'];
 
-// コンテンツテーブル
-$content_table_name = $modx->getFullTableName('site_content');
 
-// テンプレート変数テーブル
-$contentvalues_table_name = $modx->getFullTableName('site_tmplvar_contentvalues');
+	// ----------------------------------------------------------------
+	// 処理すべきレベルのON/OFFコントロール
+	// ----------------------------------------------------------------
+	$level_onoff = array();
+	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	{
+		$check_role = explode( '/' , $level_and_role[$count + 1]);
+		$level_onoff[$count + 1] = 0;
+		for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
+		{
+			// 当該のレベルに属するRoleの場合はON
+			if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
+		}
+	}
+	
+if($_REQUEST['mode'] == 'upd')
+{
+	// コンテンツ保存時の処理
+	// From save_content.processor.php
+	
+	$docid = $_REQUEST['docid'];
+	// 承認状態確認
+	$app_result = checkApprovalStatus($docid , $approval_level);
+	
+	// 承認処理  -- 開始
+	$approval_change_flag = 0;
+	
+	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	{ 
+		$pub_level = $count + 1;
+		$approval_value = 0;
+		$record_exit_flag = 0;
+		if(($level_onoff[$pub_level] == 1) || (!$permission))
+		{
+			// フォームから値を取得
+			$form_name  = 'approval_and_level' . $pub_level;
+			$s_approval = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '0';
+			$form_name  = 'comment_and_level'  . $pub_level;
+			$s_comment  = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '';
+			// 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
+			// 「公開しない」にリセットする
+			if (!$permission) $s_approval = '0';
+			
+			// 承認状況更新
+			// DBにレコードがあるかどうか
+			if (isset($a_approval[$pub_level]))
+			{
+				$sql_string_where  = "";
+				$sql_string_where .= " id='$docid' AND ";
+				$sql_string_where .= " level='$pub_level' ";
+				
+				$sql_string_update  = "";
+				$sql_string_update .= " approval='$s_approval' ";
+				
+				// SQL発行
+				$modx->db->update( $sql_string_update , $approval_table_name , $sql_string_where );
+			}
+			else
+			{
+				$fields['id']       = $docid;
+				$fields['level']    = $pub_level;
+				$fields['approval'] = $s_approval;
+			}
+			
+			if ($permission)
+			{
+				$approval_value = 0;
+				if (isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
+				
+				if (($s_approval != $approval_value ) || ( $s_comment != ''))
+				{
+					// 承認ステータスに変化があったのでフラグをON
+					if ( isset ( $a_approval[$pub_level] ) )  $approval_change_flag = 1;
+					
+					// 承認履歴更新
+					$user_id            = $modx->getLoginUserID();
+					$fields['id']       = $docid;
+					$fields['level']    = $pub_level;
+					$fields['approval'] = $s_approval;
+					$fields['user_id']  = $user_id;
+					$fields['role_id']  = $now_role;
+					$fields['editedon'] = time();
+					$fields['comment']  = $s_comment;
+					$modx->db->insert( $fields , $approval_logs_table_name );
+				}
+			}
+		}
+	}
+	
+	// すべて承認されていた場合、ドキュメントを公開設定にする
+	$app_result = checkApprovalStatus( $docid , $approval_level );
+	if ( $app_result )
+	{
+		unset($sql);
+		$sql['published'] = 1;
+		$sql['deleted']   = 0;
+		$where = " id='{$docid}' ";
+		$modx->db->update( $sql, $content_table_name , $where);
+	}
+	elseif(!$app_result)
+	{
+		// すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
+		// SQL文構築
+		$where = " id='$docid' ";
+		
+		$sql['published'] = 0;
+		$sql['deletedon'] = time();
+		$modx->db->update($sql, $content_table_name, $where);
+	}
+	// 承認処理  -- 終わり
+	
+	// バックアップ処理  -- はじめ
+	// ドキュメントデータを取得
+	$doc_data = $modx->getDocumentObject('id' , $docid );
+	
+	if($app_result)
+	{ // すべての承認を受けた場合のみ処理
+		$introtext       = mysql_real_escape_string( $doc_data['introtext'] );
+		$content         = mysql_real_escape_string( $doc_data['content'] );
+		$pagetitle       = mysql_real_escape_string( $doc_data['pagetitle'] );
+		$longtitle       = mysql_real_escape_string( $doc_data['longtitle'] );
+		$type            = $doc_data['type'];
+		$description     = mysql_real_escape_string( $doc_data['description'] );
+		$alias           = mysql_real_escape_string( $doc_data['alias'] );
+		$link_attributes = mysql_real_escape_string( $doc_data['link_attributes'] );
+		$isfolder        = $doc_data['isfolder'];
+		$richtext        = $doc_data['richtext'];
+		$published       = $doc_data['published'];
+		$parent          = $doc_data['parent'];
+		$template        = $doc_data['template'];
+		$menuindex       = $doc_data['menuindex'];
+		$searchable      = $doc_data['searchable'];
+		$cacheable       = $doc_data['cacheable'];
+		$createdby       = $doc_data['createdby'];
+		$createdon       = $doc_data['createdon'];
+		$editedby        = $doc_data['editedby'];
+		$editedon        = $doc_data['editedon'];
+		$publishedby     = $doc_data['publishedby'];
+		$publishedon     = $doc_data['publishedon'];
+		$pub_date        = $doc_data['pub_date'];
+		$unpub_date      = $doc_data['unpub_date'];
+		$contentType     = mysql_real_escape_string( $doc_data['contentType'] );
+		$contentdispo    = $doc_data['content_dispo'];
+		$donthit         = $doc_data['donthit'];
+		$menutitle       = mysql_real_escape_string( $doc_data['menutitle'] );
+		$hidemenu        = $doc_data['hidemenu'];
+		$deleted         = $doc_data['deleted'];
+		$deletedon       = $doc_data['deletedon'];
+		
+		// 履歴に登録
+		$sql = "INSERT INTO $history_table_name (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
+		VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+		
+		
+//		$rs = $modx->db->query($sql);
+	
+		// 承認保管箱に登録
+		$sql_app = "REPLACE INTO $approval_content_table_name (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
+		VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+		
+		$rs_app = $modx->db->query($sql_app);
+	
+	
+		// テンプレート変数データをゲット
+		// ----------------------------------------------------------------
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " contentid ='$docid' ";
+		
+		// SQL発行
+		$result = $modx->db->select('*', $contentvalues_table_name , $sql_string_where );
+		
+		// データ取り出し
+		$a_tvs = array();
+		$a_tvs_app = array();
+		if( $modx->db->getRecordCount( $result ) >= 1 )
+		{
+			while( $row = $modx->db->getRow( $result ) )
+			{
+				$a_tvs[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . mysql_real_escape_string( $row['value'] ) . "', '" . $editedon . "')";
+				$a_tvs_app[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . mysql_real_escape_string( $row['value'] ) . "')";
+			}
+		}
+	
+		// テンプレート変数登録
+		if (!empty($a_tvs))
+		{
+			// テンプレート変数履歴に登録
+			$sql = 'INSERT INTO '.$contentvalues_history_table_name.' (id,tmplvarid, contentid, value, editedon) VALUES '.implode(',', $a_tvs);
+			$rs = $modx->db->query($sql);
+			// テンプレート変数(承認済み保管箱)に登録
+			$sql_app = 'REPLACE INTO '.$contentvalues_approval_table_name.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
+			$rs = $modx->db->query($sql_app);
+		}
+	}
+	
+	// OnDocFormSaveイベントのときに削除状態のときは承認保管箱も削除状態にする
+	$published       = $doc_data['published'];
+	$deleted         = $doc_data['deleted'];
+	$deletedon       = $doc_data['deletedon'];
+	
+	if($deleted == 1)
+	{
+		// 承認保管箱に当該のデータが存在するか?
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " id='$docid' ";
+		
+		// SQL発行
+		$result = $modx->db->select('*', $approval_content_table_name , $sql_string_where );
+		
+		// 存在する場合、UPDATE
+		if( $modx->db->getRecordCount( $result ) >= 1 )
+		{
+			// SQL文構築
+			$sql_string_where  = "";
+			$sql_string_where .= " id='$docid' ";
+			
+			$sql_array_update = array(
+			'published'	=> $published,
+			'deleted'	=> $deleted,
+			'deletedon'	=> $deletedon
+			);
+			
+			// SQL発行
+			$modx->db->update( $sql_array_update , $approval_content_table_name , $sql_string_where );
+		}
+	}
+	// ----------------------------------------------------------------
+	// バックアップ処理  -- 終わり
+	// ----------------------------------------------------------------
+	header("Location: index.php?a=27&id=$docid");
+	exit;
+	$header = "Location: index.php?r=1&a=7&dv=1";
+	header($header);
+}
 
-// モジュールテーブル
-$module_table_name = $modx->getFullTableName('site_modules');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // -------------------------------------------------------------------
@@ -67,10 +330,10 @@ if( $modx->db->getRecordCount( $result ) >= 1 )
 // ----------------------------------------------------------------
 $request_err_flag = 0;
 // コンテンツID
-if(isset($_REQUEST['contid'])) {
-	$contents_id = intval($_REQUEST['contid']);
+if(isset($_REQUEST['docid'])) {
+	$docid = intval($_REQUEST['docid']);
 } else {
-	$contents_id=0;
+	$docid=0;
 	$request_err_flag = 1;
 }
 
@@ -92,7 +355,7 @@ if(isset($_REQUEST['rolesw']))
 	}
 }
 
-if((!is_numeric($contents_id))||(!is_numeric($hisid))||($request_err_flag == 1))
+if((!is_numeric($docid))||(!is_numeric($hisid))||($request_err_flag == 1))
 {
 	$modx->webAlert("処理を停止しました。本機能は編集画面より呼び出してください。");
 	echo "処理を停止しました。本機能は編集画面より呼び出してください。";
@@ -108,7 +371,7 @@ if((!is_numeric($contents_id))||(!is_numeric($hisid))||($request_err_flag == 1))
 // ----------------------------------------------------------------
 // SQL文構築
 $sql_string_where  = "";
-$sql_string_where .= " id='$contents_id' ";
+$sql_string_where .= " id='$docid' ";
 
 // SQL発行
 $result = $modx->db->select('*', $content_table_name , $sql_string_where );
@@ -127,10 +390,10 @@ if( $modx->db->getRecordCount( $result ) >= 1 ) {
 $sql= "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
 $sql .= "FROM " . $modx->getFullTableName("site_tmplvars") . " tv ";
 $sql .= "INNER JOIN " . $modx->getFullTableName("site_tmplvar_templates")." tvtpl ON tvtpl.tmplvarid = tv.id ";
-$sql .= "LEFT JOIN " . $contentvalues_table_name." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $contents_id. "' ";
+$sql .= "LEFT JOIN " . $contentvalues_table_name." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
 $sql .= "WHERE tvtpl.templateid = '" . $s_now_template . "'";
 $sql .= " ORDER BY tvc.tmplvarid ";
-$rs= $modx->dbQuery($sql);
+$rs= $modx->db->query($sql);
 $rowCount= $modx->recordCount($rs);
 $tmplvars = array();
 $tmpl_flag = 0;
@@ -150,7 +413,7 @@ if($rowCount > 0) {
 // ----------------------------------------------------------------
 // SQL文構築
 $sql_string_where  = "";
-$sql_string_where .= " id='$contents_id' ";
+$sql_string_where .= " id='$docid' ";
 
 $sql_string_orderby = " editedon desc ";
 
@@ -200,12 +463,12 @@ $s_old_editedby    = $doc_data['editedby'];
 $sql= "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
 $sql .= "FROM " . $modx->getFullTableName("site_tmplvars") . " tv ";
 $sql .= "INNER JOIN " . $modx->getFullTableName("site_tmplvar_templates")." tvtpl ON tvtpl.tmplvarid = tv.id ";
-$sql .= "LEFT JOIN " . $contentvalues_history_table_name." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $contents_id. "' ";
-$sql .= "WHERE tvtpl.templateid = '" . $doc_data ['template'] . "'";
+$sql .= "LEFT JOIN " . $contentvalues_history_table_name." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
+$sql .= "WHERE tvtpl.templateid = '" . $doc_data['template'] . "'";
 $sql .= " AND ";
 $sql .= " tvc.editedon = '" . $hisid . "'";
 $sql .= " ORDER BY tvc.tmplvarid ";
-$rs= $modx->dbQuery($sql);
+$rs= $modx->db->query($sql);
 $rowCount= $modx->recordCount($rs);
 $tmplvars = array();
 $s_old_tvs = "";
@@ -232,7 +495,7 @@ if( ( isset( $rolesw )) && ( $rolesw == "role")) {
 
 	// SQL文構築
 	$sql_string_where  = "";
-	$sql_string_where .= " id='$contents_id' ";
+	$sql_string_where .= " id='$docid' ";
 
 	$sql_string_update  = "";
 	$sql_string_update .= " content='$s_old_page' ";
@@ -260,7 +523,7 @@ if( ( isset( $rolesw )) && ( $rolesw == "role")) {
 	if( $tmpl_flag == 1 ) {
 		// SQL文構築
 		$sql_string_where  = "";
-		$sql_string_where .= " contentid ='$contents_id' ";
+		$sql_string_where .= " contentid ='$docid' ";
 		$sql_string_where .= " AND ";
 		$sql_string_where .= " editedon ='$hisid' ";
 
@@ -278,16 +541,14 @@ if( ( isset( $rolesw )) && ( $rolesw == "role")) {
 		// テンプレート変数登録
 		if(!empty($a_tvs_app)) {
 			$sql_app = 'REPLACE INTO '.$contentvalues_table_name.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
-			$rs = mysql_query($sql_app);
+			$rs = $modx->db->query($sql_app);
 		}
 
 	}
 
-
 	// ロールバックした後は、編集画面へ移動
-	header("Location: index.php?a=27&id=$contents_id");
+	header("Location: index.php?a=27&id=$docid");
 	exit;
-
 }
 // ----------------------------------------------------------------
 // ロールバックを行う場合のルーチン -- おわり
@@ -298,7 +559,6 @@ if( ( isset( $rolesw )) && ( $rolesw == "role")) {
 // 差分確認 -- はじめ
 // ----------------------------------------------------------------
 // Diffモジュール読み込み
-$path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 global $path;
 $path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 set_include_path(get_include_path() . PATH_SEPARATOR . $path);
@@ -356,8 +616,8 @@ include_once "header.inc.php";
 <script type="text/javascript">
 function previewOlddocument() {
 	var win = window.frames['preview'];
-	url = "../index.php?id=<?php echo $contents_id; ?>&hisid=" + document.history.hisid.value + "&manprev=z";
-	nQ = "id=<?php echo $contents_id; ?>&hisid=" + document.history.hisid.value + "&manprev=z"; // new querysting
+	url = "../index.php?id=<?php echo $docid; ?>&hisid=" + document.history.hisid.value + "&manprev=z";
+	nQ = "id=<?php echo $docid; ?>&hisid=" + document.history.hisid.value + "&manprev=z"; // new querysting
 	oQ = (win.location.href.split("?"))[1]; // old querysting
 	if(nQ != oQ) {
 		win.location.href = url;
@@ -369,7 +629,7 @@ function goBySelectValue( selname ) {
 	fucus_sel = document.getElementById( selname );   
 	select_number = fucus_sel.selectedIndex;
 	select_value  = fucus_sel.options[select_number].value;
-	url = "<?php echo "index.php?a=112&id=$module_id&contid=$contents_id&hisid="; ?>" + select_value;
+	url = "<?php echo "index.php?a=112&id=$module_id&docid=$docid&hisid="; ?>" + select_value;
 	location.href = url;
 }
 
@@ -378,7 +638,7 @@ function goBySelectValueForRolback( selname ) {
 	select_number = fucus_sel.selectedIndex;
 	select_value  = fucus_sel.options[select_number].value;
 	if( window.confirm("編集中の内容を指定した日時の状態に戻します。\n現在の内容に再度、戻すことはできません。\nよろしいですか?")) {
-		url = "<?php echo "index.php?a=112&id=$module_id&contid=$contents_id&hisid="; ?>" + select_value + "&rolesw=role";
+		url = "<?php echo "index.php?a=112&id=$module_id&docid=$docid&hisid="; ?>" + select_value + "&rolesw=role";
 		location.href = url;
 	}
 
@@ -387,7 +647,7 @@ function goBySelectValueForRolback( selname ) {
 </script>
 <br />
 <form name="history" id="contentHistory" method="post" enctype="multipart/form-data" action="index.php">
-<input type="hidden" name="contid" value="<?php echo $contents_id; ?>" />
+<input type="hidden" name="docid" value="<?php echo $docid; ?>" />
 <input type="hidden" name="hisid"  value="<?php echo $hisid; ?>" />
 
 
@@ -409,13 +669,13 @@ function goBySelectValueForRolback( selname ) {
 		<span class="warning"><?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒', $hisid )?></span>に承認を受けた内容と<span class="warning">現在、編集中のページデータ</span>との差分を表示しています。<br />
 
 		<div class="split"></div>
-		<br /><span class="warning">本文のみ抽出して差分表示</span><br />　
-		<table width="450" border="1" cellspacing="2" cellpadding="3">
+		<br /><span class="warning">本文のみ抽出して差分表示</span><br />
+		<table width="550" border="1" cellspacing="2" cellpadding="3">
 			<tr><td><?php echo $publish_diff_data;?></td></tr>
 		</table>
-		<br />　
+		<br />
 		<div class="split"></div>
-		<table width="450" border="0" cellspacing="0" cellpadding="0">
+		<table width="550" border="0" cellspacing="0" cellpadding="0">
 			<tr style="height: 24px;"><td width="150"><span class="warning">公開中プレビュー</span></td>
 			<td>
 				<select id="historyList" name="historyList" class="inputBox" onchange="goBySelectValue('historyList');" style="width:250px">
@@ -430,7 +690,7 @@ function goBySelectValueForRolback( selname ) {
 		<h2 class="tab">編集内容を戻す</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabRoleback"));</script>
 
-		<table width="450" border="0" cellspacing="0" cellpadding="0">
+		<table width="550" border="0" cellspacing="0" cellpadding="0">
 			<tr style="height: 24px;">
 			<td>
 				<select id="rolebackList" name="historyList" class="inputBox" style="width:250px">
@@ -447,7 +707,7 @@ function goBySelectValueForRolback( selname ) {
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
 		<table width="96%" border="0"><tr><td>ここには最後に保存した編集内容をプレビューしています。</td></tr>
-			<tr><td><iframe name="previewnow" frameborder="0" width="100%" height="400" id="previewnowIframe" src="../index.php?id=<?php echo $contents_id; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
+			<tr><td><iframe name="previewnow" frameborder="0" width="100%" height="400" id="previewnowIframe" src="../index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
 
 		</table>
 	</div><!-- end #tabPreview -->
@@ -467,6 +727,106 @@ function goBySelectValueForRolback( selname ) {
 </div><!-- end #documentPane -->
 </div><!-- end .sectionBody -->
 </form>
+
+
+<form name="mutate" id="mutate" class="content" method="post" enctype="multipart/form-data" action="index.php">
+<div class="sectionHeader">承認</div>
+<div class="sectionBody">
+	<div style="width:100%">
+		<?php
+		$where  = "";
+		$where .= " id='" . $_GET['docid'] . "' AND ";
+		$where .= " ( ";
+	
+		$a_add_level = array();
+		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		{
+			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
+		}
+		$where .= implode( " OR " , $a_add_level );
+	
+		$where .= " ) ";
+	
+		// SQL発行
+		$approval_table_name = $modx->getFullTableName( 'approvals' );
+		$result = $modx->db->select('*', $approval_table_name , $where );
+		$a_approval = array();
+		if( $modx->db->getRecordCount( $result ) >= 1 )
+		{
+			while( $row = $modx->db->getRow( $result ) )
+			{
+				$a_approval[$row['level']] = $row['approval'];
+			}
+		}
+		
+		$now_role = $_SESSION['mgrRole'];
+		$level_onoff = array();
+		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		{
+			$check_role = explode( '/' , $level_and_role[$count + 1]);
+			$level_onoff[$count + 1] = 0;
+			for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
+			{
+				// 当該のレベルに属するRoleの場合はON
+				if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
+			}
+		}
+		
+		?>
+		
+		
+		
+		<table width="550" border="0" cellspacing="0" cellpadding="0">
+<?php
+		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		{
+			$pub_level = $count + 1;
+			$approval_value = 0;
+			if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
+			if ( $level_onoff[$pub_level] == 1 )
+			{
+?>
+			<tr style="height: 24px;">
+				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
+				<td>
+					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
+						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
+						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
+					</select>
+				</td>
+				<td><span class="warning">理由</span></td>
+				<td>
+					<input name="comment_and_level<?php echo $pub_level?>" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
+					<img src="<?php echo $_style['icons_tooltip_over']; ?>" onmouseover="this.src='<?php echo $_style['icons_tooltip']     ; ?>';" onmouseout="this.src='<?php echo $_style['icons_tooltip_over']; ?>';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;margin-left:8px;" />
+				</td>
+			</tr>
+<?php
+			}
+		}
+?>
+	</table>
+		
+		<div class="actionButtons" style="margin-top:10px;">
+		<?php
+		$_SESSION['itemname'] = htmlspecialchars(stripslashes($doc_data['pagetitle']));
+		?>
+		<input type="hidden" name="a" value="112" />
+		<input type="hidden" name="id" value="<?php echo $_REQUEST['id']; ?>" />
+		<input type="hidden" name="docid" value="<?php echo $_REQUEST['docid']; ?>" />
+		<input type="hidden" name="mode" value="upd" />
+		<a href="#" onclick="documentDirty=false; document.mutate.save.click();"><img src="<?php echo $_style['icons_save']; ?>" />更新</a>
+		<input type="submit" name="save" style="display:none" />
+		</div>
+		
+		
+		
+		
+	</div>
+</div><!-- end .sectionBody -->
+</form>
+
+
+
 
 <?php
 

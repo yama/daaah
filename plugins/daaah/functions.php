@@ -37,7 +37,7 @@ function get_a_approval($approval_level)
 	// --------------------------------------------------------------------------------------------------------------------------------
 	// 現在の承認状況をゲット
 	// ----------------------------------------------------------------
-	$where  = " id='$contents_id' AND ";
+	$where  = " id='$docid' AND ";
 	$where .= " ( ";
 	
 	$a_add_level = array();
@@ -130,3 +130,55 @@ function get_module_id($module_name)
 	}
 	return $module_id;
 }
+
+// 現在の承認状況をチェック
+function checkApprovalStatus($docid , $approval_level)
+{
+	global $modx;
+	
+	$result     = FALSE;
+	$a_approval = getApprovalStatus($docid, $approval_level);
+	
+	// 1が｢承認｣のため、すべて承認されている場合は
+	// $approval_levelとイコールになる
+	for($count = 0; $count < $approval_level; $count ++ )
+	{
+		if(isset($a_approval[ $count + 1 ]))
+		{
+			$approval_value += intval($a_approval[ $count + 1 ]);
+		}
+	}
+	if($approval_level == $approval_value) $result = 'TRUE';
+	
+	return ($result);
+}
+
+// 現在の承認状況をゲット
+function getApprovalStatus($docid, $approval_level)
+{
+	global $modx;
+	
+	// 多段階承認テーブル
+	$approval_table_name = $modx->getFullTableName('approvals');
+	
+	$a_add_level = array();
+	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	{
+		$a_add_level[] = ' level=' . ( $count + 1 ) . ' ';
+	}
+	$where = " id='{$docid}' AND  ( " . join(' OR ' , $a_add_level) . ' ) ';
+	
+	$result = $modx->db->select('*', $approval_table_name , $where);
+
+	$a_approval = array();
+	if($modx->db->getRecordCount( $result ) >= 1)
+	{
+		while($row = $modx->db->getRow($result))
+		{
+			$a_approval[ $row['level'] ] = $row['approval'];
+		}
+	}
+	
+	return ( $a_approval );
+}
+
