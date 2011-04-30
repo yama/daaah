@@ -456,14 +456,16 @@ switch ($e->name) {
 
 	// 承認履歴をゲット
 	// ----------------------------------------------------------------
-	if ( $contents_id != 0 ) { // 新規コンテンツでは表示しない
+	if($contents_id != 0)
+	{ // 新規コンテンツでは表示しない
 		// SQL文構築
 		$sql_string_where  = "";
 		$sql_string_where .= " id='$contents_id' AND ";
 		$sql_string_where .= " ( ";
 
 		$a_add_level = array();
-		for ( $count = 0 ; $count < $approval_level ; $count ++ ) {
+		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		{
 			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
 		}
 		$sql_string_where .= implode( " OR " , $a_add_level );
@@ -510,8 +512,6 @@ switch ($e->name) {
 			$s_history .= '</ul>';
 		}
 	}
-
-
 
 	// ----------------------------------------------------------------
 

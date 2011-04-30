@@ -23,22 +23,22 @@ global $modx_lang_attribute;
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 include_once($daaah_path . 'functions.php');
 
-if(function_exists("date_default_timezone_set") )date_default_timezone_set("Asia/Tokyo");
+if(function_exists("date_default_timezone_set"))date_default_timezone_set("Asia/Tokyo");
 
 // 履歴テーブル
-$history_table_name = $modx->getFullTableName( 'history_of_site_content' );
+$history_table_name = $modx->getFullTableName('history_of_site_content');
 
 // テンプレート変数履歴テーブル
-$contentvalues_history_table_name = $modx->getFullTableName( 'history_of_site_tmplvar_contentvalues' );
+$contentvalues_history_table_name = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');
 
 // コンテンツテーブル
-$content_table_name = $modx->getFullTableName( 'site_content' );
+$content_table_name = $modx->getFullTableName('site_content');
 
 // テンプレート変数テーブル
-$contentvalues_table_name = $modx->getFullTableName( 'site_tmplvar_contentvalues' );
+$contentvalues_table_name = $modx->getFullTableName('site_tmplvar_contentvalues');
 
 // モジュールテーブル
-$module_table_name = $modx->getFullTableName( 'site_modules' );
+$module_table_name = $modx->getFullTableName('site_modules');
 
 
 // -------------------------------------------------------------------
@@ -53,8 +53,10 @@ $result = $modx->db->select('*', $module_table_name , $sql_string_where );
 
 // データ取り出し
 // モジュール「DiffForEdit」のID
-if( $modx->db->getRecordCount( $result ) >= 1 ) {
-	while( $row = $modx->db->getRow( $result ) ) {
+if( $modx->db->getRecordCount( $result ) >= 1 )
+{
+	while( $row = $modx->db->getRow( $result ))
+	{
 		$module_id = $row['id'];
 	}
 }
@@ -81,24 +83,21 @@ if(isset($_REQUEST['hisid'])) {
 }
 
 // ロールバックスイッチ
-if(isset($_REQUEST['rolesw'])) {
+if(isset($_REQUEST['rolesw']))
+{
 	$rolesw = $_REQUEST['rolesw'];
-	if ( $rolesw != "role" ) {
+	if($rolesw != "role")
+	{
 		$request_err_flag = 1;
 	}
 }
 
-
-if ( (!is_numeric($contents_id))||(!is_numeric($hisid))||($request_err_flag == 1) ) {
-	$modx->webAlert( "処理を停止しました。本機能は編集画面より呼び出してください。" );
+if((!is_numeric($contents_id))||(!is_numeric($hisid))||($request_err_flag == 1))
+{
+	$modx->webAlert("処理を停止しました。本機能は編集画面より呼び出してください。");
 	echo "処理を停止しました。本機能は編集画面より呼び出してください。";
 	exit;
 }
-
-
-// ベースURL取得
-$base = 'http://'.$_SERVER['SERVER_NAME'].str_replace("/manager/index.php", "", $_SERVER["PHP_SELF"]);
-
 
 // ----------------------------------------------------------------
 // コンテンツのみの差分を読み込みする場合のルーチン -- はじめ
@@ -117,7 +116,7 @@ $result = $modx->db->select('*', $content_table_name , $sql_string_where );
 // データ取り出し
 $a_docs = array();
 if( $modx->db->getRecordCount( $result ) >= 1 ) {
-	while( $row = $modx->db->getRow( $result ) ) {
+	while( $row = $modx->db->getRow( $result )) {
 		$s_now_page = $row['content'];
 		$s_now_template = $row['template'];
 	}
@@ -135,13 +134,13 @@ $rs= $modx->dbQuery($sql);
 $rowCount= $modx->recordCount($rs);
 $tmplvars = array();
 $tmpl_flag = 0;
-if ($rowCount > 0) {
+if($rowCount > 0) {
 	$tmpl_flag = 1;
 	for ($i= 0; $i < $rowCount; $i++) {
 		$row_tvs= $modx->fetchRow($rs);
-		if ( $row_tvs['value'] != "" ) $tmplvars []= "[" . $row_tvs['caption'] . "]" . $row_tvs['value'];
+		if( $row_tvs['value'] != "") $tmplvars []= "[" . $row_tvs['caption'] . "]" . $row_tvs['value'];
 	}
-	$s_now_page .= implode( "\n", $tmplvars);
+	$s_now_page .= implode("\n", $tmplvars);
 }
 
 
@@ -162,23 +161,23 @@ $result = $modx->db->select('*', $history_table_name , $sql_string_where , $sql_
 $a_docs = array();
 $s_drop_down_history = "";
 if( $modx->db->getRecordCount( $result ) >= 1 ) {
-	while( $row = $modx->db->getRow( $result ) ) {
+	while( $row = $modx->db->getRow( $result )) {
 		$a_docs[ $row['editedon'] ] = $row;
 
 		// ドロップダウン組み立て
 		$s_drop_down_history .= '<option value="';
 		$s_drop_down_history .= $row['editedon'];
 		$s_drop_down_history .= '"';
-		if ( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected="selected"';
+		if( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected="selected"';
 		$s_drop_down_history .= '>';
-		$s_drop_down_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
+		$s_drop_down_history .= mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
 		$s_drop_down_history .= '</option>';
 
 	}
 }
 
-if (!isset($a_docs[ $hisid ])) {
-	$modx->webAlert( "承認を受けたページデータが存在しません。" );
+if(!isset($a_docs[ $hisid ])) {
+	$modx->webAlert("承認を受けたページデータが存在しません。");
 	echo "承認を受けたページデータが存在しません。";
 	exit;
 } else {
@@ -210,12 +209,12 @@ $rs= $modx->dbQuery($sql);
 $rowCount= $modx->recordCount($rs);
 $tmplvars = array();
 $s_old_tvs = "";
-if ($rowCount > 0) {
+if($rowCount > 0) {
 	for ($i= 0; $i < $rowCount; $i++) {
 		$row_tvs= $modx->fetchRow($rs);
 		$tmplvars []= "[" . $row_tvs['caption'] . "]" . $row_tvs['value'];
 	}
-	$s_old_tvs = implode( "\n", $tmplvars);
+	$s_old_tvs = implode("\n", $tmplvars);
 }
 
 
@@ -226,7 +225,7 @@ if ($rowCount > 0) {
 // ----------------------------------------------------------------
 // ロールバックを行う場合のルーチン -- はじめ
 // ----------------------------------------------------------------
-if ( ( isset( $rolesw ) ) && ( $rolesw == "role" ) ) {
+if( ( isset( $rolesw )) && ( $rolesw == "role")) {
 	// 本文データのロールバック
 	// ----------------------------------------------------------------
 	$s_old_page = mysql_escape_string($s_old_page);
@@ -258,7 +257,7 @@ if ( ( isset( $rolesw ) ) && ( $rolesw == "role" ) ) {
 
 	// テンプレート変数データのロールバック
 	// ----------------------------------------------------------------
-	if ( $tmpl_flag == 1 ) {
+	if( $tmpl_flag == 1 ) {
 		// SQL文構築
 		$sql_string_where  = "";
 		$sql_string_where .= " contentid ='$contents_id' ";
@@ -271,13 +270,13 @@ if ( ( isset( $rolesw ) ) && ( $rolesw == "role" ) ) {
 		// データ取り出し
 		$a_tvs_app = array();
 		if( $modx->db->getRecordCount( $result ) >= 1 ) {
-			while( $row = $modx->db->getRow( $result ) ) {
+			while( $row = $modx->db->getRow( $result )) {
 				$a_tvs_app[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . mysql_escape_string( $row['value'] ) . "')";
 			}
 		}
 
 		// テンプレート変数登録
-		if (!empty($a_tvs_app)) {
+		if(!empty($a_tvs_app)) {
 			$sql_app = 'REPLACE INTO '.$contentvalues_table_name.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
 			$rs = mysql_query($sql_app);
 		}
@@ -318,8 +317,8 @@ $s_now_page = str_replace("　", "", $s_now_page );
 $s_old_page = str_replace("　", "", $s_old_page );
 $s_now_page = str_replace(" ", "", $s_now_page );
 $s_old_page = str_replace(" ", "", $s_old_page );
-while ( preg_match( '|\n\n|' , $s_now_page ) ) $s_old_page = preg_replace( '|\n\n|' , "\n" , $s_now_page );
-while ( preg_match( '|\n\n|' , $s_old_page ) ) $s_old_page = preg_replace( '|\n\n|' , "\n" , $s_old_page );
+while ( preg_match('|\n\n|' , $s_now_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_now_page );
+while ( preg_match('|\n\n|' , $s_old_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_old_page );
 
 $a_now_page = explode ("\n", $s_now_page);
 $a_old_page = explode ("\n", $s_old_page);
@@ -332,9 +331,9 @@ $renderer = new Text_Diff_Renderer_inline();
 
 // Diff結果データ加工
 $publish_diff_data = $renderer->render($diff);
-while ( preg_match( '|\n\n|' , $publish_diff_data ) ) $publish_diff_data = preg_replace( '|\n\n|' , "\n" , $publish_diff_data );
+while ( preg_match('|\n\n|' , $publish_diff_data )) $publish_diff_data = preg_replace('|\n\n|' , "\n" , $publish_diff_data );
 $publish_diff_data = str_replace("\n", "<br />\n", $publish_diff_data );
-if ( $publish_diff_data == "" ) {
+if( $publish_diff_data == "") {
 	$publish_diff_data = "二つのページ内容に違いはありません。";
 }
 
@@ -360,7 +359,7 @@ function previewOlddocument() {
 	url = "../index.php?id=<?php echo $contents_id; ?>&hisid=" + document.history.hisid.value + "&manprev=z";
 	nQ = "id=<?php echo $contents_id; ?>&hisid=" + document.history.hisid.value + "&manprev=z"; // new querysting
 	oQ = (win.location.href.split("?"))[1]; // old querysting
-	if (nQ != oQ) {
+	if(nQ != oQ) {
 		win.location.href = url;
 		win.alreadyPreviewed = true;
 	}
@@ -378,7 +377,7 @@ function goBySelectValueForRolback( selname ) {
 	fucus_sel = document.getElementById( selname );   
 	select_number = fucus_sel.selectedIndex;
 	select_value  = fucus_sel.options[select_number].value;
-	if ( window.confirm("編集中の内容を指定した日時の状態に戻します。\n現在の内容に再度、戻すことはできません。\nよろしいですか?") ) {
+	if( window.confirm("編集中の内容を指定した日時の状態に戻します。\n現在の内容に再度、戻すことはできません。\nよろしいですか?")) {
 		url = "<?php echo "index.php?a=112&id=$module_id&contid=$contents_id&hisid="; ?>" + select_value + "&rolesw=role";
 		location.href = url;
 	}
@@ -398,16 +397,16 @@ function goBySelectValueForRolback( selname ) {
 
 <div class="tab-pane" id="daaahPane">
 	<script type="text/javascript">
-	tpSettings = new WebFXTabPane( document.getElementById( "daaahPane" ) );
+	tpSettings = new WebFXTabPane(document.getElementById("daaahPane"));
 	</script>
 
 	<!-- General -->
 
 	<div class="tab-page" id="tabGeneral">
 		<h2 class="tab">差分</h2>
-		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabGeneral" ) );</script>
+		<script type="text/javascript">tpSettings.addTabPage(document.getElementById("tabGeneral"));</script>
 
-		<span class="warning"><?php echo mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?></span>に承認を受けた内容と<span class="warning">現在、編集中のページデータ</span>との差分を表示しています。<br />
+		<span class="warning"><?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒', $hisid )?></span>に承認を受けた内容と<span class="warning">現在、編集中のページデータ</span>との差分を表示しています。<br />
 
 		<div class="split"></div>
 		<br /><span class="warning">本文のみ抽出して差分表示</span><br />　
@@ -429,7 +428,7 @@ function goBySelectValueForRolback( selname ) {
 	<!-- Roleback -->
 	<div class="tab-page" id="tabRoleback">
 		<h2 class="tab">編集内容を戻す</h2>
-		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabRoleback" ) );</script>
+		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabRoleback"));</script>
 
 		<table width="450" border="0" cellspacing="0" cellpadding="0">
 			<tr style="height: 24px;">
@@ -445,7 +444,7 @@ function goBySelectValueForRolback( selname ) {
 	<!-- Preview -->
 	<div class="tab-page" id="tabPreviewNow">
 		<h2 class="tab">承認前プレビュー</h2>
-		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabPreviewNow" ) );</script>
+		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
 		<table width="96%" border="0"><tr><td>ここには最後に保存した編集内容をプレビューしています。</td></tr>
 			<tr><td><iframe name="previewnow" frameborder="0" width="100%" height="400" id="previewnowIframe" src="../index.php?id=<?php echo $contents_id; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
@@ -456,9 +455,9 @@ function goBySelectValueForRolback( selname ) {
 	<!-- Settings -->
 	<div class="tab-page" id="tabPreview">
 		<h2 class="tab">公開中プレビュー</h2>
-		<script type="text/javascript">tpSettings.addTabPage( document.getElementById( "tabPreview" ), previewOlddocument );</script>
+		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreview"), previewOlddocument );</script>
 
-		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
+		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
 			<tr><td><iframe name="preview" frameborder="0" width="100%" height="400" id="previewIframe"></iframe></td></tr>
 
 		</table>
@@ -471,16 +470,10 @@ function goBySelectValueForRolback( selname ) {
 
 <?php
 
-
-
 // ----------------------------------------------------------------
 // フッタ読み込み
 // ----------------------------------------------------------------
 include_once "footer.inc.php";
-
-
-
-
 
 
 
