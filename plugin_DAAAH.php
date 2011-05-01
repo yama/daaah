@@ -642,7 +642,7 @@ switch ($e->name)
 			$sql .= " tvc.editedon = '" . $publish_history_id . "'";
 		}
 		$rs= $modx->db->query($sql);
-		$rowCount= $modx->recordCount($rs);
+		$rowCount= $modx->db->getRecordCount($rs);
 		if ($rowCount > 0) {
 			for ($i= 0; $i < $rowCount; $i++) {
 				$row= $modx->fetchRow($rs);
