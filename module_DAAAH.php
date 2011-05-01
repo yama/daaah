@@ -3,7 +3,7 @@
 ----------------------------------------------------------------
 「DAAAH」(DiffAndApprovalAndHistory)
 履歴と承認と差分表示のモジュール
-※モジュールは基本的に全員が利用できるように設定すること。
+※モジュールは基本的に全員が利用できるように設定してください。
 ----------------------------------------------------------------
 */
 
@@ -680,7 +680,7 @@ function goBySelectValueForRolback( selname ) {
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
 		<table width="96%" border="0"><tr><td>ここには最後に保存した編集内容をプレビューしています。</td></tr>
-			<tr><td><iframe name="previewnow" frameborder="0" width="100%" height="400" id="previewnowIframe" src="../index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
+			<tr><td><iframe name="previewnow" frameborder="0" width="100%" style="height:900px;" id="previewnowIframe" src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
 
 		</table>
 	</div><!-- end #tabPreview -->
@@ -691,7 +691,8 @@ function goBySelectValueForRolback( selname ) {
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreview"), previewOlddocument );</script>
 
 		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
-			<tr><td><iframe name="preview" frameborder="0" width="100%" height="400" id="previewIframe"></iframe></td></tr>
+			<tr><td><iframe name="previewpub" frameborder="0" width="100%" style="height:900px;" id="previewIframe"
+			src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $_GET['docid'];?>&hisid=<?php echo $_GET['hisid'];?>&manprev=z"></iframe></td></tr>
 
 		</table>
 	</div><!-- end #tabSettings -->
@@ -762,7 +763,7 @@ function goBySelectValueForRolback( selname ) {
 				</td>
 				<td><span class="warning">理由</span></td>
 				<td>
-					<input name="comment_and_level<?php echo $pub_level?>" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
+					<input type="text" name="comment_and_level<?php echo $pub_level?>" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
 					<img src="<?php echo $_style['icons_tooltip_over']; ?>" onmouseover="this.src='<?php echo $_style['icons_tooltip']     ; ?>';" onmouseout="this.src='<?php echo $_style['icons_tooltip_over']; ?>';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;margin-left:8px;" />
 				</td>
 			</tr>
