@@ -143,13 +143,12 @@ function checkApprovalStatus($docid , $approval_level)
 	// $approval_levelとイコールになる
 	for($count = 0; $count < $approval_level; $count ++ )
 	{
-		if(isset($a_approval[ $count + 1 ]))
+		if(isset($a_approval[$count + 1]))
 		{
 			$approval_value += intval($a_approval[ $count + 1 ]);
 		}
 	}
 	if($approval_level == $approval_value) $result = 'TRUE';
-	
 	return ($result);
 }
 
@@ -159,7 +158,7 @@ function getApprovalStatus($docid, $approval_level)
 	global $modx;
 	
 	// 多段階承認テーブル
-	$approval_table_name = $modx->getFullTableName('approvals');
+	$tbl_approval = $modx->getFullTableName('approvals');
 	
 	$a_add_level = array();
 	for ( $count = 0 ; $count < $approval_level ; $count ++ )
@@ -168,10 +167,22 @@ function getApprovalStatus($docid, $approval_level)
 	}
 	$where = " id='{$docid}' AND  ( " . join(' OR ' , $a_add_level) . ' ) ';
 	
-	$result = $modx->db->select('*', $approval_table_name , $where);
+	$result = $modx->db->select('*', $tbl_approval , $where);
 
 	$a_approval = array();
-	if($modx->db->getRecordCount( $result ) >= 1)
+	if(isset($_POST))
+	{
+		foreach($_POST as $k=>$v)
+		{
+			if(strpos($k,'approval_and_level')!==false)
+			{
+				$k = str_replace('approval_and_level', '', $k);
+				$a_approval[$k] = $v;
+			}
+		}
+	}
+	
+	if(($modx->db->getRecordCount( $result ) >= 1) && count($a_approval)==0)
 	{
 		while($row = $modx->db->getRow($result))
 		{
