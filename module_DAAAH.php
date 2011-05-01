@@ -38,7 +38,7 @@ $tbl_user_roles             = $modx->getFullTableName('user_roles');            
 $tbl_site_modules           = $modx->getFullTableName('site_modules');                         // モジュールテーブル
 
 $permission = $modx->hasPermission('publish_document');
-$now_role = $_SESSION['mgrRole'];
+$now_role   = $_SESSION['mgrRole'];
 
 
 	// ----------------------------------------------------------------
@@ -783,10 +783,6 @@ function goBySelectValueForRolback( selname ) {
 		<a href="#" onclick="documentDirty=false; document.mutate.save.click();"><img src="<?php echo $_style['icons_save']; ?>" />更新</a>
 		<input type="submit" name="save" style="display:none" />
 		</div>
-		
-		
-		
-		
 	</div>
 </div><!-- end .sectionBody -->
 </form>
