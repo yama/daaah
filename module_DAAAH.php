@@ -631,6 +631,7 @@ function goBySelectValueForRolback( selname ) {
 <div class="tab-pane" id="daaahPane">
 	<script type="text/javascript">
 	tpSettings = new WebFXTabPane(document.getElementById("daaahPane"));
+	tpSettings.selectedIndex = 2;
 	</script>
 
 	<!-- General -->

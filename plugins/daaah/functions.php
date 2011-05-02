@@ -1,16 +1,4 @@
 <?php
-/*
-$tbl_history                = $modx->getFullTableName( 'history_of_site_content' );               // 履歴テーブル
-$tbl_contentvalues_history  = $modx->getFullTableName( 'history_of_site_tmplvar_contentvalues' ); // テンプレート変数履歴テーブル
-$tbl_content                = $modx->getFullTableName( 'site_content' );                          // コンテンツテーブル
-$tbl_contentvalues          = $modx->getFullTableName( 'site_tmplvar_contentvalues' );            // テンプレート変数テーブル
-$tbl_approval_content       = $modx->getFullTableName( 'approvaled_site_content' );               // コンテンツテーブル(承認済み保管箱)
-$tbl_contentvalues_approval = $modx->getFullTableName( 'approvaled_site_tmplvar_contentvalues' ); // テンプレート変数テーブル(承認済み保管箱)
-$tbl_approval               = $modx->getFullTableName( 'approvals' );                             // 多段階承認テーブル
-$tbl_user_role              = $modx->getFullTableName( 'user_roles' );                            // ユーザーグループテーブル
-$tbl_approval_logs          = $modx->getFullTableName( 'approval_logs' );                         // 多段階承認履歴テーブル
-$tbl_module                 = $modx->getFullTableName( 'site_modules' );                          // モジュールテーブル
-*/
 
 function level_onoff($config,$current_role)
 {
