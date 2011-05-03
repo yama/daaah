@@ -93,13 +93,6 @@ if($_REQUEST['mode'] == 'upd')
 				$modx->db->update($sql, $tbl_approval, $where);
 				unset($sql);
 			}
-			else
-			{
-				$fields['id']       = $docid;
-				$fields['level']    = $pub_level;
-				$fields['approval'] = $s_approval;
-				unset($fields);
-			}
 			
 			if($permission)
 			{
