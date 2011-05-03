@@ -522,10 +522,16 @@ switch ($e->name)
 
 		// データ取り出し
 		$a_docs = array();
-		if( $modx->db->getRecordCount( $result ) >= 1 ) {
-			while( $row = $modx->db->getRow( $result ) ) {
+		if( $modx->db->getRecordCount($result) > 0)
+		{
+			while($row = $modx->db->getRow($result))
+			{
 				$a_docs[] = $row;
 			}
+		}
+		else
+		{
+			return;
 		}
 
 		$pub_his_contents = $a_docs[0];
