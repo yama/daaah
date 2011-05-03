@@ -670,8 +670,10 @@ function goBySelectValueForRolback( selname ) {
 		<h2 class="tab">承認前プレビュー</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
-		<table width="96%" border="0"><tr><td>ここには最後に保存した編集内容をプレビューしています。</td></tr>
-			<tr><td><iframe name="previewnow" frameborder="0" width="100%" style="height:900px;" id="previewnowIframe" src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
+		<table width="96%" border="0"><tr><td><?php
+			if($doc_data['template'] !== '13') echo 'ここには最後に保存した編集内容をプレビューしています。';
+			else                               echo '<strong style="color:#f00;">（注）※この確認画面は、親階層のプレビューです。</strong>';
+												?></td></tr>
 
 		</table>
 	</div><!-- end #tabPreview -->
