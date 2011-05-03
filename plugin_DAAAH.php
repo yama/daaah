@@ -154,9 +154,9 @@ switch ($e->name)
 		if ( ( $level_onoff[$pub_level] == 1 ) || (!$permission) ) {
 			// フォームから値を取得
 			$form_name  = 'approval_and_level' . $pub_level;
-			$s_approval = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '0';
+			$s_approval = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '0';
 			$form_name  = 'comment_and_level'  . $pub_level;
-			$s_comment  = (isset($_POST[$form_name])) ? mysql_escape_string($_POST[$form_name]) : '';
+			$s_comment  = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '';
 
 			// 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
 			// 「公開しない」にリセットする
@@ -164,7 +164,7 @@ switch ($e->name)
 
 			// 承認状況更新
 			// DBにレコードがあるかどうか
-			if ( isset ( $a_approval[$pub_level] ) )
+			if (isset($a_approval[$pub_level]))
 			{
 				$where  = " id='{$docid}' AND level='{$pub_level}' ";
 				$sql    = " approval='{$s_approval}' ";
@@ -204,7 +204,7 @@ switch ($e->name)
 					);
 
 					// SQL発行
-					$modx->db->insert( $fields , $tbl_approval_logs );
+					$modx->db->insert($fields , $tbl_approval_logs );
 				}
 
 			}
@@ -212,34 +212,22 @@ switch ($e->name)
 	}
 
 	// すべて承認されていた場合、ドキュメントを公開設定にする
-	$app_result = checkApprovalStatus( $docid , $approval_level );
+	$app_result = checkApprovalStatus($docid, $approval_level);
 	
-	if ( $app_result )
+	if($app_result)
 	{
-		// SQL文構築
-		$sql_string_where = " id='{$docid}' ";
-
-		$sql_array_update = array(
-				'published'	=> 1,
-				'deleted'	=> 0
-				);
-
-		// SQL発行
-		$modx->db->update( $sql_array_update , $tbl_content , $sql_string_where );
-
-	} elseif ( !( $app_result ) && ( $modx->event->params['mode'] != "upd" ) ) {
+		unset($sql);
+		$sql['published'] = 1;
+		$sql['deleted']   = 0;
+		$modx->db->update($sql, $tbl_content, " id='{$docid}' ");
+	}
+	elseif(!($app_result) && ($modx->event->params['mode'] != "upd"))
+	{
 		// すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$docid' ";
-
-		$sql_array_update = array(
-				'published'	=> 0,
-				'deletedon'	=> time()
-				);
-
-		// SQL発行
-		$modx->db->update( $sql_array_update , $tbl_content , $sql_string_where );
+		unset($sql);
+		$sql['published'] = 0;
+		$sql['deletedon'] = time();
+		$modx->db->update($sql, $tbl_content, " id='$docid' " );
 
 	}
 	// ----------------------------------------------------------------
@@ -255,14 +243,14 @@ switch ($e->name)
 
 	if ($app_result)  { // すべての承認を受けた場合のみ処理
 
-		$introtext       = mysql_real_escape_string( $doc_data['introtext'] );
-		$content         = mysql_real_escape_string( $doc_data['content'] );
-		$pagetitle       = mysql_real_escape_string( $doc_data['pagetitle'] );
-		$longtitle       = mysql_real_escape_string( $doc_data['longtitle'] );
+		$introtext       = $modx->db->escape( $doc_data['introtext'] );
+		$content         = $modx->db->escape( $doc_data['content'] );
+		$pagetitle       = $modx->db->escape( $doc_data['pagetitle'] );
+		$longtitle       = $modx->db->escape( $doc_data['longtitle'] );
 		$type            = $doc_data['type'];
-		$description     = mysql_real_escape_string( $doc_data['description'] );
-		$alias           = mysql_real_escape_string( $doc_data['alias'] );
-		$link_attributes = mysql_real_escape_string( $doc_data['link_attributes'] );
+		$description     = $modx->db->escape( $doc_data['description'] );
+		$alias           = $modx->db->escape( $doc_data['alias'] );
+		$link_attributes = $modx->db->escape( $doc_data['link_attributes'] );
 		$isfolder        = $doc_data['isfolder'];
 		$richtext        = $doc_data['richtext'];
 		$published       = $doc_data['published'];
@@ -279,53 +267,50 @@ switch ($e->name)
 		$publishedon     = $doc_data['publishedon'];
 		$pub_date        = $doc_data['pub_date'];
 		$unpub_date      = $doc_data['unpub_date'];
-		$contentType     = mysql_real_escape_string( $doc_data['contentType'] );
+		$contentType     = $modx->db->escape( $doc_data['contentType'] );
 		$contentdispo    = $doc_data['content_dispo'];
 		$donthit         = $doc_data['donthit'];
-		$menutitle       = mysql_real_escape_string( $doc_data['menutitle'] );
+		$menutitle       = $modx->db->escape( $doc_data['menutitle'] );
 		$hidemenu        = $doc_data['hidemenu'];
 		$deleted         = $doc_data['deleted'];
 		$deletedon       = $doc_data['deletedon'];
 
 		// 履歴に登録
 		$sql = "INSERT INTO $tbl_history (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
-						VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+						VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}', '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}', '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon}, '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
 
 		$rs = $modx->db->query($sql);
 
 		// 承認保管箱に登録
 		$sql_app = "REPLACE INTO $tbl_approval_content (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
-						VALUES('" . $docid . "','" . $introtext . "','" . $content . "', '" . $pagetitle . "', '" . $longtitle . "', '" . $type . "', '" . $description . "', '" . $alias . "', '" . $link_attributes . "', '" . $isfolder . "', '" . $richtext . "', '" . $published . "', '" . $parent . "', '" . $template . "', '" . $menuindex . "', '" . $searchable . "', '" . $cacheable . "', '" . $createdby . "', " . $createdon . ", '" . $editedby . "', " . $editedon . ", " . $publishedby . ", " . $publishedon . ", '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
+						VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}', '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}', '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon}, '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
 
 		$rs_app = $modx->db->query($sql_app);
 
 
 		// テンプレート変数データをゲット
-		// ----------------------------------------------------------------
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " contentid ='$docid' ";
-
-		// SQL発行
-		$result = $modx->db->select('*', $tbl_contentvalues , $sql_string_where );
+		$result = $modx->db->select('*', $tbl_contentvalues, " contentid ='$docid' ");
 
 		// データ取り出し
 		$a_tvs = array();
 		$a_tvs_app = array();
-		if( $modx->db->getRecordCount( $result ) >= 1 ) {
-			while( $row = $modx->db->getRow( $result ) ) {
-				$a_tvs[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . mysql_real_escape_string( $row['value'] ) . "', '" . $editedon . "')";
-				$a_tvs_app[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . mysql_real_escape_string( $row['value'] ) . "')";
+		if($modx->db->getRecordCount( $result ) >= 1)
+		{
+			while($row = $modx->db->getRow($result))
+			{
+				$a_tvs[]     = "('{$row['id']}','{$row['tmplvarid']}','{$row['contentid']}', '" . $modx->db->escape($row['value'] ) . "', '{$editedon}')";
+				$a_tvs_app[] = "('{$row['id']}','{$row['tmplvarid']}','{$row['contentid']}', '" . $modx->db->escape($row['value'] ) . "')";
 			}
 		}
 
 		// テンプレート変数登録
-		if (!empty($a_tvs)) {
+		if (!empty($a_tvs))
+		{
 			// テンプレート変数履歴に登録
-			$sql = 'INSERT INTO '.$tbl_contentvalues_history.' (id,tmplvarid, contentid, value, editedon) VALUES '.implode(',', $a_tvs);
+			$sql     = 'INSERT INTO '  . $tbl_contentvalues_history.' (id,tmplvarid, contentid, value, editedon) VALUES '.implode(',', $a_tvs);
 			$rs = $modx->db->query($sql);
 			// テンプレート変数(承認済み保管箱)に登録
-			$sql_app = 'REPLACE INTO '.$tbl_contentvalues_approval.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
+			$sql_app = 'REPLACE INTO ' . $tbl_contentvalues_approval.' (id,tmplvarid, contentid, value)          VALUES '.implode(',', $a_tvs_app);
 			$rs = $modx->db->query($sql_app);
 		}
 	}
@@ -335,20 +320,14 @@ switch ($e->name)
 	$deleted   = $doc_data['deleted'];
 	$deletedon = $doc_data['deletedon'];
 
-	if ( $deleted == 1 ) {
+	if ( $deleted == 1 )
+	{
 		// 承認保管箱に当該のデータが存在するか?
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$docid' ";
 
-		// SQL発行
-		$result = $modx->db->select('*', $tbl_approval_content , $sql_string_where );
+		$result = $modx->db->select('*', $tbl_approval_content , " id='$docid' " );
 
 		// 存在する場合、UPDATE
 		if( $modx->db->getRecordCount( $result ) >= 1 ) {
-			// SQL文構築
-			$sql_string_where  = "";
-			$sql_string_where .= " id='$docid' ";
 
 			$sql_array_update = array(
 					'published'	=> $published,
@@ -357,7 +336,7 @@ switch ($e->name)
 					);
 
 			// SQL発行
-			$modx->db->update( $sql_array_update , $tbl_approval_content , $sql_string_where );
+			$modx->db->update( $sql_array_update , $tbl_approval_content , " id='$docid' " );
 		}
 	}
 	// ----------------------------------------------------------------
@@ -524,15 +503,9 @@ switch ($e->name)
 		$a_docs = array();
 		if( $modx->db->getRecordCount($result) > 0)
 		{
-			while($row = $modx->db->getRow($result))
-			{
-				$a_docs[] = $row;
-			}
+			while($row = $modx->db->getRow($result)) $a_docs[] = $row;
 		}
-		else
-		{
-			return;
-		}
+		else return;
 
 		$pub_his_contents = $a_docs[0];
 		$publish_history_id = intval($pub_his_contents['editedon']);
