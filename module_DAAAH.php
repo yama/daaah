@@ -668,7 +668,7 @@ function goBySelectValueForRolback( selname ) {
 			if($doc_data['template'] !== '13') echo 'ここには最後に保存した編集内容をプレビューしています。';
 			else                               echo '<strong style="color:#f00;">（注）※この確認画面は、親階層のプレビューです。</strong>';
 												?></td></tr>
-
+			<tr><td><iframe name="previewnow" frameborder="0" width="100%" style="height:900px;" id="previewnowIframe" src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
 		</table>
 	</div><!-- end #tabPreview -->
 
