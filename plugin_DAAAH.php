@@ -174,11 +174,12 @@ switch ($e->name)
 			}
 		}
 	}
+	
+	// ドキュメントデータを取得
+	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
 	// すべて承認されていた場合、ドキュメントを公開設定にする
-	$app_result = checkApprovalStatus($docid, $approval_level);
-	
-	if($app_result)
+	if($app_result && $_POST['published']==1)
 	{
 		unset($sql);
 		$sql['published'] = 1;
@@ -196,8 +197,6 @@ switch ($e->name)
 	// 承認処理  -- 終わり
 
 	// バックアップ処理  -- はじめ
-	// ドキュメントデータを取得
-	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
 	if($app_result)
 	{ // すべての承認を受けた場合のみ処理

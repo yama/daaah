@@ -119,10 +119,14 @@ if($_REQUEST['mode'] == 'upd')
 		}
 	}
 	
-	// すべて承認されていた場合、ドキュメントを公開設定にする
-	$app_result = checkApprovalStatus($docid, $approval_level);
+	// 承認処理  -- 終わり
+	// バックアップ処理  -- はじめ
+	// ドキュメントデータを取得
 	
-	if($app_result)
+	$doc_data = $modx->getDocumentObject('id' , $docid );
+	
+	// すべて承認されていた場合、ドキュメントを公開設定にする
+	if($app_result && $doc_data['published']==1)
 	{
 		$sql['published'] = 1;
 		$sql['deleted']   = 0;
@@ -137,10 +141,7 @@ if($_REQUEST['mode'] == 'upd')
 		$modx->db->update($sql, $tbl_content, " id='$docid' ");
 		unset($sql);
 	}
-	// 承認処理  -- 終わり
-	// バックアップ処理  -- はじめ
-	// ドキュメントデータを取得
-	$doc_data = $modx->getDocumentObject('id' , $docid );
+	
 	if($app_result)
 	{ // すべての承認を受けた場合のみ処理
 		$introtext       = $modx->db->escape($doc_data['introtext']);
