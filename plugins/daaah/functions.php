@@ -17,39 +17,6 @@ function level_onoff($config,$current_role)
 	return $level_onoff;
 }
 
-function get_a_approval($approval_level)
-{
-	global $modx;
-	// --------------------------------------------------------------------------------------------------------------------------------
-	// 承認処理のための下ごしらえ -- はじめ
-	// --------------------------------------------------------------------------------------------------------------------------------
-	// 現在の承認状況をゲット
-	// ----------------------------------------------------------------
-	$where  = " id='$docid' AND ";
-	$where .= " ( ";
-	
-	$a_add_level = array();
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
-	{
-		$a_add_level[] = " level=" . ( $count + 1 ) . " ";
-	}
-	$where .= implode( " OR " , $a_add_level );
-	
-	$where .= " ) ";
-	
-	// SQL発行
-	$result = $modx->db->select('*', $tbl_approval , $where );
-	
-	// データ取り出し
-	$a_approval = array();
-	if( $modx->db->getRecordCount( $result ) >= 1 ) {
-		while( $row = $modx->db->getRow( $result ) ) {
-			$a_approval[ $row['level'] ] = $row['approval'];
-		}
-	}
-	return $a_approval;
-}
-
 // ----------------------------------------------------------------
 // 現在の承認状況をゲット
 // ----------------------------------------------------------------
