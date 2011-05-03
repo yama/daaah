@@ -21,29 +21,20 @@
 // イベントトリガーの内容を取得
 // ----------------------------------------------------------------
 
+global $_style, $style_path;
+
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 include_once($daaah_path . 'functions.php');
+include_once($daaah_path . 'config.inc.php');
 
 $e = & $modx->Event;
 
 // Webページを表示する場合、引数に「preview_sw」があるときは処理を行わない
-if (($e->name=="OnLoadWebDocument")||($e->name=="OnLoadWebPageCache")){ 
-	// 処理対象のコンテンツID
-	$docid = $modx->documentIdentifier;
-} else {
-	$docid = $e->params['id'];
-
+if (($e->name=="OnLoadWebDocument")||($e->name=="OnLoadWebPageCache"))
+{
+	 $docid = $modx->documentIdentifier; // 処理対象のコンテンツID
 }
-
-
-global $_style, $style_path;
-
-// ----------------------------------------------------------------
-// 設定読み込み
-// ----------------------------------------------------------------
-// 多段階承認の設定ファイルを読み込み
-$config_file = $daaah_path . 'config.inc.php';
-include_once($config_file);
+else $docid = $e->params['id'];
 
 // テーブル名と共通変数を設定
 
@@ -58,17 +49,11 @@ $tbl_contentvalues          = $modx->getFullTableName('site_tmplvar_contentvalue
 $tbl_user_roles             = $modx->getFullTableName('user_roles');                           // ユーザーグループテーブル
 $tbl_site_modules           = $modx->getFullTableName('site_modules');                         // モジュールテーブル
 
-// -------------------------------------------------------------------
 // モジュール「DAAAH」のモジュールID取り出し
-// -------------------------------------------------------------------
-
-// モジュール「DAAAH」のID
 $result    = $modx->db->select('id', $tbl_site_modules, " name='DAAAH'");
 $module_id = $modx->db->getValue($result);
 
-// ----------------------------------------------------------------
 // 権限確認
-// ----------------------------------------------------------------
 $permission = $modx->hasPermission('publish_document');
 
 // 現在のログインユーザーのロールをセット
@@ -77,59 +62,45 @@ $now_role = $_SESSION['mgrRole'];
 
 // 承認処理のための下ごしらえ -- はじめ
 // 現在の承認状況をゲット
-// ----------------------------------------------------------------
 if ( $docid != 0 )
 { // 新規コンテンツでは表示しない
-
-	$sql_string_where  = " id='$docid' AND ";
-	$sql_string_where .= " ( ";
-
 	$a_add_level = array();
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	for($count = 0 ; $count < $approval_level ; $count ++ )
 	{
-		$a_add_level[] = " level=" . ( $count + 1 ) . " ";
+		$a_add_level[] = " level=" . ($count + 1) . " ";
 	}
-	$sql_string_where .= implode( " OR " , $a_add_level );
+	$where = implode( " OR " , $a_add_level );
+	$where = " id='{$docid}' AND ( " . $where . ' ) ';
 
-	$sql_string_where .= " ) ";
-
-	// SQL発行
-	$result = $modx->db->select('*', $tbl_approval , $sql_string_where );
+	$result = $modx->db->select('*', $tbl_approval , $where);
 
 	// データ取り出し
 	$a_approval = array();
-	if( $modx->db->getRecordCount( $result ) >= 1 )
+	if($modx->db->getRecordCount($result ) > 0 )
 	{
-		while( $row = $modx->db->getRow( $result ) )
+		while($row = $modx->db->getRow($result) )
 		{
 			$a_approval[ $row['level'] ] = $row['approval'];
 		}
 	}
 }
 
-
-// ----------------------------------------------------------------
 // 処理すべきレベルのON/OFFコントロール
-// ----------------------------------------------------------------
 $level_onoff = array();
-for ( $count = 0 ; $count < $approval_level ; $count ++ )
+for($count = 0 ; $count < $approval_level; $count ++)
 {
-	$check_role = explode( '/' , $level_and_role[$count + 1]);
+	$check_role = explode('/' , $level_and_role[$count + 1]);
 	$level_onoff[$count + 1] = 0;
-	for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
+	for($chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
 	{
 		// 当該のレベルに属するRoleの場合はON
 		if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
 	}
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------
 // 承認処理のための下ごしらえ -- おわり
-// --------------------------------------------------------------------------------------------------------------------------------
 
-// --------------------------------------------------------------------------------------------------------------------------------
 // メイン処理開始
-// --------------------------------------------------------------------------------------------------------------------------------
 switch ($e->name)
 {
 	// --------------------------------------------------------------------------------------------------------------------------------
@@ -146,12 +117,13 @@ switch ($e->name)
 	// ----------------------------------------------------------------
 	$approval_change_flag = 0;
 
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	for($count = 0 ; $count < $approval_level ; $count ++ )
 	{ 
 		$pub_level = $count + 1;
 		$approval_value = 0;
 		$record_exit_flag = 0;
-		if ( ( $level_onoff[$pub_level] == 1 ) || (!$permission) ) {
+		if(($level_onoff[$pub_level] == 1 ) || (!$permission))
+		{
 			// フォームから値を取得
 			$form_name  = 'approval_and_level' . $pub_level;
 			$s_approval = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '0';
@@ -166,9 +138,7 @@ switch ($e->name)
 			// DBにレコードがあるかどうか
 			if (isset($a_approval[$pub_level]))
 			{
-				$where  = " id='{$docid}' AND level='{$pub_level}' ";
-				$sql    = " approval='{$s_approval}' ";
-				$modx->db->update( $sql , $tbl_approval , $where );
+				$modx->db->update("approval='{$s_approval}'", $tbl_approval, "id='{$docid}' AND level='{$pub_level}'");
 			}
 			else
 			{
@@ -190,23 +160,17 @@ switch ($e->name)
 					if(isset($a_approval[$pub_level])) $approval_change_flag = 1;
 
 					// 承認履歴更新
-					// SQL文構築
 					$user_id = $modx->getLoginUserID();
 					unset($fields);
-					$fields = array(
-						'id'	=> $docid,
-						'level'	=> $pub_level,
-						'approval'	=> $s_approval,
-						'user_id'	=> $user_id,
-						'role_id'	=> $now_role,
-						'editedon'	=> time(),
-						'comment'	=> $s_comment,
-					);
-
-					// SQL発行
-					$modx->db->insert($fields , $tbl_approval_logs );
+					$fields['id']       = $docid;
+					$fields['level']    = $pub_level;
+					$fields['approval'] = $s_approval;
+					$fields['user_id']  = $user_id;
+					$fields['role_id']  = $now_role;
+					$fields['editedon'] = time();
+					$fields['comment']  = $s_comment;
+					$modx->db->insert($fields, $tbl_approval_logs );
 				}
-
 			}
 		}
 	}
@@ -219,7 +183,7 @@ switch ($e->name)
 		unset($sql);
 		$sql['published'] = 1;
 		$sql['deleted']   = 0;
-		$modx->db->update($sql, $tbl_content, " id='{$docid}' ");
+		$modx->db->update($sql, $tbl_content, "id='{$docid}'");
 	}
 	elseif(!($app_result) && ($modx->event->params['mode'] != "upd"))
 	{
@@ -227,22 +191,16 @@ switch ($e->name)
 		unset($sql);
 		$sql['published'] = 0;
 		$sql['deletedon'] = time();
-		$modx->db->update($sql, $tbl_content, " id='$docid' " );
-
+		$modx->db->update($sql, $tbl_content, "id='$docid'" );
 	}
-	// ----------------------------------------------------------------
 	// 承認処理  -- 終わり
-	// ----------------------------------------------------------------
 
-
-	// ----------------------------------------------------------------
 	// バックアップ処理  -- はじめ
-	// ----------------------------------------------------------------
 	// ドキュメントデータを取得
 	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
-	if ($app_result)  { // すべての承認を受けた場合のみ処理
-
+	if($app_result)
+	{ // すべての承認を受けた場合のみ処理
 		$introtext       = $modx->db->escape( $doc_data['introtext'] );
 		$content         = $modx->db->escape( $doc_data['content'] );
 		$pagetitle       = $modx->db->escape( $doc_data['pagetitle'] );
@@ -277,16 +235,13 @@ switch ($e->name)
 
 		// 履歴に登録
 		$sql = "INSERT INTO $tbl_history (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
-						VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}', '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}', '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon}, '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
-
+										VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}', '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}', '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon}, '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
 		$rs = $modx->db->query($sql);
 
 		// 承認保管箱に登録
 		$sql_app = "REPLACE INTO $tbl_approval_content (id,introtext,content, pagetitle, longtitle, type, description, alias, link_attributes, isfolder, richtext, published, parent, template, menuindex, searchable, cacheable, createdby, createdon, editedby, editedon, publishedby, publishedon, pub_date, unpub_date, contentType, content_dispo, donthit, menutitle, hidemenu)
 						VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}', '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}', '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon}, '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '$pub_date', '$unpub_date', '$contentType', '$contentdispo', '$donthit', '$menutitle', '$hidemenu')";
-
 		$rs_app = $modx->db->query($sql_app);
-
 
 		// テンプレート変数データをゲット
 		$result = $modx->db->select('*', $tbl_contentvalues, " contentid ='$docid' ");
@@ -320,50 +275,40 @@ switch ($e->name)
 	$deleted   = $doc_data['deleted'];
 	$deletedon = $doc_data['deletedon'];
 
-	if ( $deleted == 1 )
+	if ($deleted == 1)
 	{
 		// 承認保管箱に当該のデータが存在するか?
 
-		$result = $modx->db->select('*', $tbl_approval_content , " id='$docid' " );
+		$result = $modx->db->select('*', $tbl_approval_content, "id='$docid'");
 
 		// 存在する場合、UPDATE
-		if( $modx->db->getRecordCount( $result ) >= 1 ) {
+		if($modx->db->getRecordCount( $result ) >= 1)
+		{
+			$sql['published'] = $published;
+			$sql['deleted']   = $deleted;
+			$sql['deletedon'] = $deletedon;
 
-			$sql_array_update = array(
-					'published'	=> $published,
-					'deleted'	=> $deleted,
-					'deletedon'	=> $deletedon
-					);
-
-			// SQL発行
-			$modx->db->update( $sql_array_update , $tbl_approval_content , " id='$docid' " );
+			$modx->db->update( $sql, $tbl_approval_content, "id='{$docid}'");
 		}
 	}
-	// ----------------------------------------------------------------
 	// バックアップ処理  -- 終わり
-	// ----------------------------------------------------------------
-
 	break;
 
-
-	// --------------------------------------------------------------------------------------------------------------------------------
 	// コンテンツ編集画面表示時の処理
-	// --------------------------------------------------------------------------------------------------------------------------------
 	// From mutate_content.dynamic.php
 	case "OnDocFormRender":
 
-	// ----------------------------------------------------------------
 	// 承認処理  -- はじめ
-	// ----------------------------------------------------------------
 	// ロール一覧を取得
-	// ----------------------------------------------------------------
 	// SQL発行
 	$result = $modx->db->select('*', $tbl_user_roles );
 
 	// データ取り出し
 	$a_role_list = array();
-	if( $modx->db->getRecordCount( $result ) >= 1 ) {
-		while( $row = $modx->db->getRow( $result ) ) {
+	if( $modx->db->getRecordCount( $result ) >= 1)
+	{
+		while($row = $modx->db->getRow($result))
+		{
 			$a_role_list[ $row['id'] ] = $row['name'];
 		}
 	}
@@ -373,50 +318,39 @@ switch ($e->name)
 	// ----------------------------------------------------------------
 	if($docid != 0)
 	{ // 新規コンテンツでは表示しない
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$docid' AND ";
-		$sql_string_where .= " ( ";
-
 		$a_add_level = array();
-		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		for($count = 0 ; $count < $approval_level ; $count ++ )
 		{
 			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
 		}
-		$sql_string_where .= implode( " OR " , $a_add_level );
-
-		$sql_string_where .= " ) ";
-
-		$sql_string_orderby = " editedon desc ";
-
-
-
-		// SQL発行
-		$his_result = $modx->db->select('*', $tbl_approval_logs , $sql_string_where , $sql_string_orderby );
+		$where = implode( " OR " , $a_add_level );
+		$where = " id='{$docid}' AND ( " . $where . ' ) ';
+		
+		$his_result = $modx->db->select('*', $tbl_approval_logs, $where, " editedon desc ");
 	}
 
 	// データ取り出し
-	$s_history = "";
-	$s_history .= '<div class="split"></div>';
+	$s_history  = '<div class="split"></div>';
 	$s_history .= '<span class="warning">現在の承認状況</span>';
 	$s_history .= '<ul>';
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	for($count = 0 ; $count < $approval_level ; $count ++ )
 	{ 
 		$pub_level = $count + 1;
 		$approval_value = 0;
-		if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
-		$s_history .= '<li>';
-		$s_history .= $level_and_mes[$pub_level] . ':' . $a_approval_string[ $approval_value ] . '<br />';
-		$s_history .= '</li>';
+		if(isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
+		$s_history .= '<li>' . $level_and_mes[$pub_level] . ':' . $a_approval_string[ $approval_value ] . '</li>';
 	}
 	$s_history .= '</ul>';
 
-	if ( $docid != 0 ) { // 新規コンテンツでは表示しない
-		if( $modx->db->getRecordCount( $his_result ) >= 1 ) {
+	if($docid != 0)
+	{ // 新規コンテンツでは表示しない
+		if( $modx->db->getRecordCount( $his_result ) >= 1 )
+		{
 			$s_history .= '<div class="split"></div>';
 			$s_history .= '<span class="warning">承認履歴</span>';
 			$s_history .= '<ul>';
-			while( $row = $modx->db->getRow( $his_result ) ) {
+			while($row = $modx->db->getRow($his_result))
+			{
 				$s_history .= '<li>';
 				$s_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ) . ' : ';
 				$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
@@ -442,7 +376,7 @@ switch ($e->name)
 ?>
 		<table width="550" border="0" cellspacing="0" cellpadding="0">
 <?php
-		for ( $count = 0 ; $count < $approval_level ; $count ++ )
+		for($count = 0 ; $count < $approval_level ; $count ++ )
 		{
 			$pub_level = $count + 1;
 			$approval_value = 0;
@@ -483,21 +417,14 @@ switch ($e->name)
 	// 承認処理  -- 終わり
 	// ----------------------------------------------------------------
 
-
 	// ----------------------------------------------------------------
 	// バックアップ処理  -- はじめ
 	// ----------------------------------------------------------------
 	// 履歴データをゲット
 	// ----------------------------------------------------------------
-	if ( $docid != 0 ) { // 新規コンテンツでは表示しない
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$docid' ";
-
-		$sql_string_orderby = " editedon desc ";
-
-		// SQL発行
-		$result = $modx->db->select('*', $tbl_history , $sql_string_where , $sql_string_orderby );
+	if($docid != 0)
+	{ // 新規コンテンツでは表示しない
+		$result = $modx->db->select('*', $tbl_history , " id='{$docid}' ", " editedon desc ");
 
 		// データ取り出し
 		$a_docs = array();
@@ -693,7 +620,7 @@ switch ($e->name)
 
 	$count_max = count ( $children_id );
 	reset ( $children_id );
-	for ( $count = 0 ; $count < $count_max ; $count ++ ) {
+	for($count = 0 ; $count < $count_max ; $count ++ ) {
 
 		// ドキュメントデータを取得
 		$process_id = $children_id [ key ( $children_id ) ];
@@ -730,5 +657,3 @@ switch ($e->name)
 	}
 	break;
 }
-
-// ?>
