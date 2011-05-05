@@ -17,10 +17,6 @@
 
 */
 
-// ----------------------------------------------------------------
-// イベントトリガーの内容を取得
-// ----------------------------------------------------------------
-
 global $_style, $style_path;
 
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
@@ -467,43 +463,43 @@ switch ($e->name)
 	case "OnLoadWebDocument":
 	// 当該のコンテンツIDを取得
 	$docid = $modx->documentIdentifier;
+	
 	if (isset($_REQUEST['hisid']))
 	{
+		$mode = 'history';
 		$search_table     = $tbl_history;
 		$search_tvs_table = $tbl_contentvalues_history;
-		$publish_history_id = intval($_REQUEST['hisid']);
 	}
 	elseif (isset($_REQUEST['preview_sw']))
 	{
+		$mode = 'un_approval';
 		$search_table     = $tbl_content;
 		$search_tvs_table = $tbl_contentvalues;
-		$publish_history_id = 0;
 	}
 	else
 	{
+		$mode = 'un_approvaled';
 		$search_table     = $tbl_approval_content;
 		$search_tvs_table = $tbl_contentvalues_approval;
-		$publish_history_id = 0;
 	}
 
 	// 履歴データをゲット
 	// ----------------------------------------------------------------
-	// SQL文構築
 	$where = " id='$docid' ";
-	if ( ( $publish_history_id != 0 ) )
+	if($mode == 'history')
 	{
-		$where .= " AND ";
-		$where .= " editedon='$publish_history_id' ";
+		$publish_history_id = intval($_REQUEST['hisid']);
+		$where .= " AND editedon='{$publish_history_id}' ";
 	}
 
 	// SQL発行
 	$result = $modx->db->select('*', $search_table , $where );
 
 	// データ取り出し(1件だけ)
-	if( $modx->db->getRecordCount( $result ) >= 1 )
+	if($modx->db->getRecordCount($result ) > 0)
 	{
 		$doc_data = array();
-		$doc_data = $modx->db->getRow( $result );
+		$doc_data = $modx->db->getRow($result);
 
 		$modx->documentObject['introtext']       = $doc_data['introtext'];
 		$modx->documentObject['content']         = $doc_data['content'];
@@ -535,23 +531,27 @@ switch ($e->name)
 		$modx->documentObject['menutitle']       = $doc_data['menutitle'];
 		$modx->documentObject['hidemenu']        = $doc_data['hidemenu'];
 
-
 		// テンプレート変数読み込み
-		$sql= "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
-		$sql .= "FROM " . $modx->getFullTableName("site_tmplvars") . " tv ";
-		$sql .= "INNER JOIN " . $modx->getFullTableName("site_tmplvar_templates")." tvtpl ON tvtpl.tmplvarid = tv.id ";
-		$sql .= "LEFT JOIN " . $search_tvs_table." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
-		$sql .= "WHERE tvtpl.templateid = '" . $doc_data['template'] . "'";
-		if ( ( $publish_history_id != 0 ) ) {
-			$sql .= " AND ";
-			$sql .= " tvc.editedon = '" . $publish_history_id . "'";
+		$tbl_tmplvars          = $modx->getFullTableName('site_tmplvars');
+		$tbl_tmplvar_templates = $modx->getFullTableName('site_tmplvar_templates');
+		
+		$sql  = "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
+		$sql .= "FROM {$tbl_tmplvars} tv ";
+		$sql .= "INNER JOIN {$tbl_tmplvar_templates} tvtpl ON tvtpl.tmplvarid = tv.id ";
+		$sql .= "LEFT JOIN {$search_tvs_table}       tvc   ON tvc.tmplvarid   = tv.id AND tvc.contentid = '{$docid}' ";
+		$sql .= "WHERE tvtpl.templateid = '{$doc_data['template']}'";
+		if ($mode == 'history')
+		{
+			$sql .= " AND tvc.editedon = '{$publish_history_id}'";
 		}
-		$rs= $modx->db->query($sql);
-		$rowCount= $modx->db->getRecordCount($rs);
-		if ($rowCount > 0) {
-			for ($i= 0; $i < $rowCount; $i++) {
+		$rs = $modx->db->query($sql);
+		$rowCount = $modx->db->getRecordCount($rs);
+		if ($rowCount > 0)
+		{
+			for ($i= 0; $i < $rowCount; $i++)
+			{
 				$row= $modx->fetchRow($rs);
-				$tmplvars[$row['name']]= array (
+				$tmplvars[$row['name']] = array (
 					$row['name'],
 					$row['value'],
 					$row['display'],
@@ -563,18 +563,15 @@ switch ($e->name)
 		}
 		//キャッシュは強制的にOFF
 		$modx->documentObject['cacheable'] = 0;
-
 	}
 	else
 	{
-		//unset( $modx->documentObject );
 		// トップへ移動
-		header("Location: index.php");
+		header("Location: " . $modx->config['site_url']);
 		exit;
 	}
 
 	break;
-
 
 	// --------------------------------------------------------------------------------------------------------------------------------
 	// 削除直後の処理
@@ -587,72 +584,50 @@ switch ($e->name)
 	$doc_data = $modx->getDocumentObject( 'id' , $docid );
 
 	// 削除状態のときは承認保管箱も削除状態にする。逆のときは同様で非削除に
-	$published       = $doc_data['published'];
-	$deleted         = $doc_data['deleted'];
-	$deletedon       = $doc_data['deletedon'];
+	$published = $doc_data['published'];
+	$deleted   = $doc_data['deleted'];
+	$deletedon = $doc_data['deletedon'];
 
 	// 承認保管箱に当該のデータが存在するか?
-	// SQL文構築
-	$sql_string_where  = "";
-	$sql_string_where .= " id='$docid' ";
-
-	// SQL発行
-	$result = $modx->db->select('*', $tbl_approval_content , $sql_string_where );
+	$result = $modx->db->select('*', $tbl_approval_content, " id='$docid' ");
 
 	// 存在する場合、UPDATE
-	if( $modx->db->getRecordCount( $result ) >= 1 ) {
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$docid' ";
-
-		$sql_array_update = array(
-				'published'	=> $published,
-				'deleted'	=> $deleted,
-				'deletedon'	=> $deletedon
-				);
-		// SQL発行
-		$modx->db->update( $sql_array_update , $tbl_approval_content , $sql_string_where );
+	if($modx->db->getRecordCount( $result ) > 0)
+	{
+		unset($sql);
+		$sql['published'] = $published;
+		$sql['deleted']   = $deleted;
+		$sql['deletedon'] = $deletedon;
+		$modx->db->update($sql, $tbl_approval_content, " id='{$docid}' " );
 	}
 
-
 	$children_id = $e->params['children'];
-
-	$count_max = count ( $children_id );
-	reset ( $children_id );
-	for($count = 0 ; $count < $count_max ; $count ++ ) {
-
+	$count_max = count($children_id);
+	reset($children_id);
+	for($count = 0; $count < $count_max; $count ++ )
+	{
 		// ドキュメントデータを取得
 		$process_id = $children_id [ key ( $children_id ) ];
-		$doc_data = $modx->getDocumentObject( 'id' , $process_id );
+		$doc_data = $modx->getDocumentObject('id', $process_id );
 
 		// 削除状態のときは承認保管箱も削除状態にする。逆のときは同様で非削除に
-		$published       = $doc_data['published'];
-		$deleted         = $doc_data['deleted'];
-		$deletedon       = $doc_data['deletedon'];
+		$published = $doc_data['published'];
+		$deleted   = $doc_data['deleted'];
+		$deletedon = $doc_data['deletedon'];
 
 		// 承認保管箱に当該のデータが存在するか?
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " id='$process_id' ";
-
-		// SQL発行
-		$result = $modx->db->select('*', $tbl_approval_content , $sql_string_where );
+		$result = $modx->db->select('*', $tbl_approval_content , " id='{$process_id}'");
 
 		// 存在する場合、UPDATE
-		if( $modx->db->getRecordCount( $result ) >= 1 ) {
-			// SQL文構築
-			$sql_string_where  = "";
-			$sql_string_where .= " id='$process_id' ";
-
-			$sql_array_update = array(
-					'published'	=> $published,
-					'deleted'	=> $deleted,
-					'deletedon'	=> $deletedon
-					);
-			// SQL発行
-			$modx->db->update( $sql_array_update , $tbl_approval_content , $sql_string_where );
+		if( $modx->db->getRecordCount($result) > 0)
+		{
+			unset($sql);
+			$sql['published'] = $published;
+			$sql['deleted']   = $deleted;
+			$sql['deletedon'] = $deletedon;
+			$modx->db->update($sql, $tbl_approval_content, " id='{$process_id}'");
 		}
-		next ( $children_id );
+		next ($children_id);
 	}
 	break;
 }

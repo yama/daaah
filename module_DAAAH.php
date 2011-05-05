@@ -679,7 +679,7 @@ function goBySelectValueForRolback( selname ) {
 
 		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
 			<tr><td><iframe name="previewpub" frameborder="0" width="100%" style="height:900px;" id="previewIframe"
-			src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $_GET['docid'];?>&hisid=<?php echo $_GET['hisid'];?>&manprev=z"></iframe></td></tr>
+			src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid;?>&hisid=<?php echo $_GET['hisid'];?>&manprev=z"></iframe></td></tr>
 
 		</table>
 	</div><!-- end #tabSettings -->
