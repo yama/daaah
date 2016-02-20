@@ -550,7 +550,7 @@ switch ($e->name)
 		{
 			for ($i= 0; $i < $rowCount; $i++)
 			{
-				$row= $modx->fetchRow($rs);
+				$row= $modx->db->getRow($rs);
 				$tmplvars[$row['name']] = array (
 					$row['name'],
 					$row['value'],
