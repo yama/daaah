@@ -45,6 +45,7 @@ $now_role   = $_SESSION['mgrRole'];
 	// 処理すべきレベルのON/OFFコントロール
 	// ----------------------------------------------------------------
 	$level_onoff = array();
+	//ロールIDを添え字1～3で指定し、中が1ならそのレベルでのアクセスとなる。
 	for ( $count = 0 ; $count < $approval_level ; $count ++ )
 	{
 		$check_role = explode( '/' , $level_and_role[$count + 1]);
