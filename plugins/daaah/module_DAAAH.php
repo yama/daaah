@@ -608,8 +608,7 @@ function goBySelectValueForRolback( selname ) {
 <input type="hidden" name="docid" value="<?php echo $docid; ?>" />
 <input type="hidden" name="hisid"  value="<?php echo $hisid; ?>" />
 
-
-<div class="sectionHeader">ドキュメントの更新履歴/差分表示</div>
+<h1>ドキュメントの更新履歴/差分表示</h1>
 <div class="sectionBody">
 <script type="text/javascript" src="media/script/tabpane.js"></script>
 
@@ -629,10 +628,9 @@ function goBySelectValueForRolback( selname ) {
 
 		<div class="split"></div>
 		<br /><span class="warning">本文のみ抽出して差分表示</span><br />
-		<table width="550" border="1" cellspacing="2" cellpadding="3">
-			<tr><td><?php echo $publish_diff_data;?></td></tr>
-		</table>
-		<br />
+		<div style="width:550px;padding:1em;border:1px solid #ccc;margin-bottom:1em;">
+			<?php echo $publish_diff_data;?>
+		</div>
 		<div class="split"></div>
 		<table width="550" border="0" cellspacing="0" cellpadding="0">
 			<tr style="height: 24px;"><td width="150"><span class="warning">公開中プレビュー</span></td>
@@ -692,6 +690,7 @@ function goBySelectValueForRolback( selname ) {
 
 
 <form name="mutate" id="mutate" class="content" method="post" enctype="multipart/form-data" action="index.php">
+<div class="section" style="margin-bottom:2em;">
 <div class="sectionHeader">承認</div>
 <div class="sectionBody">
 	<div style="width:100%">
@@ -772,6 +771,7 @@ function goBySelectValueForRolback( selname ) {
 		<a href="#" onclick="documentDirty=false; document.mutate.save.click();"><img src="<?php echo $_style['icons_save']; ?>" />更新</a>
 		<input type="submit" name="save" style="display:none" />
 		</div>
+	</div>
 	</div>
 </div><!-- end .sectionBody -->
 </form>
