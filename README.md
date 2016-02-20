@@ -1,6 +1,5 @@
-------------------------------------------------------------------------
-■■■「DAAAH」(DiffAndApprovalAndHistory)■■■ ver0.5
-------------------------------------------------------------------------
+「DAAAH」(DiffAndApprovalAndHistory) ver0.5
+========================================================================
 「DAAAH」はMODXにはなかった履歴と承認と差分表示の機能を追加する
 モジュール&プラグインです。
 次のような機能があります。
@@ -25,8 +24,9 @@ eZ Publishのような気合の入ったロールバック&ワークフロー機
 
 
 ■インストール
-※XAMMPの場合は「for_xampp」の中のファイルを使ってください。
 ------------------------------------------------------------------------
+※XAMMPの場合は「for_xampp」の中のファイルを使ってください。
+
 1.「DAAAH.sql」をphpMyAdmin等を使用して、MODXのDBへ投入
 (phpMyAdminならSQLのフォームを開いて、コピー&ペースト、「実行」で投入できます。)
 
@@ -55,34 +55,30 @@ eZ Publishのような気合の入ったロールバック&ワークフロー機
 
 Wayfinder(ver2.0)の場合
 ---------------------------
-/assets/snippets/wayfinder/wayfinder.inc.php
+/assets/snippets/wayfinder/wayfinder.inc.php  
+$modx->getFullTableName("site_content");  
+　↓  
+$modx->getFullTableName("approvaled_site_content");
 
-$tblsc = $modx->getFullTableName("site_content");
-　↓
-$tblsc = $modx->getFullTableName("approvaled_site_content");
-
-$tb1 = $modx->getFullTableName("site_tmplvar_contentvalues");
-　↓
-$tb1 = $modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
+$modx->getFullTableName("site_tmplvar_contentvalues");  
+　↓  
+$modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
 
 
 Ditto(ver2.1.0)の場合
 ---------------------------
-/assets/snippets/ditto/classes/ditto.class.inc.php
-
-$modx->getFullTableName("site_content");
-　↓
+/assets/snippets/ditto/classes/ditto.class.inc.php  
+$modx->getFullTableName("site_content");  
+　↓  
 $modx->getFullTableName("approvaled_site_content");
 
-$modx->getFullTableName("site_content");
-　↓
+$modx->getFullTableName("site_content");  
+　↓  
 $modx->getFullTableName("approvaled_site_content");
 
-$modx->getFullTableName("site_tmplvar_contentvalues");
-　↓
+$modx->getFullTableName("site_tmplvar_contentvalues");  
+　↓  
 $modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
-
-
 
 ■設定ファイル「config.inc.php」の記述方法
 ------------------------------------------------------------------------
@@ -93,12 +89,16 @@ $modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
 結局、差分と履歴管理しか使う必要のない場合や、結局、1つのアカウントしか
 使わない場合は下記のように設定します。
 
+```
 $approval_level = 1;
 $level_and_role [ 1 ] = "1";
 $level_and_mes [ 1 ] = "承認";
+```
 
+```
 $a_approval_string [ 0 ] = "承認しない";
 $a_approval_string [ 1 ] = "承認する";
+```
 
 
 2.ワークフロー設定1
@@ -110,26 +110,26 @@ $a_approval_string [ 1 ] = "承認する";
 もう1つのロールは「上長ユーザー」で「ページの公開」の公開をつけてください。
 「上長ユーザー」のロールIDが3の場合、次のような記述になります。
 
+```
 $approval_level = 1;
 $level_and_role [ 1 ] = "1/3"; // 3は上長ユーザーのロールID(1はadmin)
 $level_and_mes [ 1 ] = "承認";
+```
 
+```
 $a_approval_string [ 0 ] = "承認しない";
 $a_approval_string [ 1 ] = "承認する";
+```
 
-各部門で編集できるページはMODX標準の「ユーザー」-「管理画面のアクセス許可」で
-設定してください。
+各部門で編集できるページはMODX標準の「ユーザー」-「管理画面のアクセス許可」で設定してください。
 各部門の編集ユーザーと上長は、同じページをアクセスできるように設定してください。
 これにより各部門ごとに編集できるページを設定することができます。
-各部門ごとに編集できるページを設定することで、各部門の上長が公開許可を出すことが
-可能なページを細かく設定できます。
+各部門ごとに編集できるページを設定することで、各部門の上長が公開許可を出すことが可能なページを細かく設定できます。
 
 
 3.ワークフロー設定2(実は推奨設定)
 ---------------------------
-各部門に上長がいて、ページを編集するユーザーと公開承認を行う上長ユーザーが
-いる場合、かつ、Web管理の総括部門として総務部等がある場合では、下記のよう
-になります。
+各部門に上長がいて、ページを編集するユーザーと公開承認を行う上長ユーザーがいる場合、かつ、Web管理の総括部門として総務部等がある場合では、下記のようになります。
 まず、「ユーザー」-「ロール管理」で3つのロールを作ります。
 1つのロールは「ページ編集ユーザー」で「ページの公開」の公開を外してください。
 もう1つのロールは「上長ユーザー」で「ページの公開」の公開をつけてください。
@@ -137,6 +137,7 @@ $a_approval_string [ 1 ] = "承認する";
 「上長ユーザー」のロールIDが3、「総務ユーザー」のロールIDが4の場合、
 次のような記述になります。
 
+```
 $approval_level = 1;
 $level_and_role [ 1 ] = "1/3"; // 3は上長ユーザーのロールID(1はadmin)
 $level_and_role [ 2 ] = "1/4"; // 4は総務ユーザーのロールID(1はadmin)
@@ -145,6 +146,7 @@ $level_and_mes [ 2 ] = "Web総括承認";
 
 $a_approval_string [ 0 ] = "承認しない";
 $a_approval_string [ 1 ] = "承認する";
+```
 
 
 
@@ -169,14 +171,12 @@ $a_approval_string [ 1 ] = "承認する";
 ようはロールバック機能なので、これだけでも利用価値はあるのかなと思っていたりします。
 
 
-
 ■ライセンスについて
 ------------------------------------------------------------------------
 当然ながらMODXのGPLに則り、「DAAAH」モジュール&プラグインはGPLで公開します。
 よって、利用に関して特別な費用は発生しません。
 自由に使ってください。
-ただし、利用に関して生じる不具合につきましては、当方で責任を持つことは
-できかねます。
+ただし、利用に関して生じる不具合につきましては、当方で責任を持つことはできかねます。
 
 
 
