@@ -1,70 +1,66 @@
 ------------------------------------------------------------------------
 ■■■「DAAAH」(DiffAndApprovalAndHistory)■■■ ver0.5
 ------------------------------------------------------------------------
-「DAAAH」はMODxにはなかった履歴と承認と差分表示の機能を追加する
+「DAAAH」はMODXにはなかった履歴と承認と差分表示の機能を追加する
 モジュール&プラグインです。
 次のような機能があります。
 
-・更新履歴の管理
-・現在のデータと更新前データの差分表示(Diff機能)
-・いじって保存してしまったデータを更新前データへ復帰(ロールバック機能)
-・一般公開のための承認ワークフロー
+* 更新履歴の管理
+* 現在のデータと更新前データの差分表示(Diff機能)
+* いじって保存してしまったデータを更新前データへ復帰(ロールバック機能)
+* 一般公開のための承認ワークフロー
 
-ぶっちゃけ、eZ Publishのような気合の入ったロールバック&ワークフロー機能
-ではないですが、MODxをビジネスベースで使う場合の不満点だった機能を一応
-補完できます。
+eZ Publishのような気合の入ったロールバック&ワークフロー機能ではないですが、MODXをビジネスベースで使う場合の不満点だった機能を一応補完できます。
 
 ※動作テストは1.0.4Jで行っていますが、たぶん0.9系でも使用できると思います。
 
+下記の点にご注意ください。
+
+* 管理する履歴は編集操作ごとの履歴ではなく承認ごとの履歴です。そのため承認する人がいないと履歴は追加されません。
+* MODXのキャッシュ機能は使えません。オンにしていても無効になります。
+* 他リソースの情報を出力できるスニペット(Wayfinder・Ditto)を利用している場合は改造が必要(インストールマニュアルに詳しく書いてあります)
+* 【重要】承認すると、投稿画面設定で非公開にしていても自動的に公開になります。
+* 公開日の予約([*pub_date*])はできなくなります。
+* 承認待ち投稿の一覧や投稿・編集時にPMを送信する機能はありません。メールなどで連絡を取り合って承認を求める必要があります。
+
 
 ■インストール
-※XAMMPの場合は「for_xampp」の中のファイルを使ってね
+※XAMMPの場合は「for_xampp」の中のファイルを使ってください。
 ------------------------------------------------------------------------
-1.「DAAAH.sql」をphpMyAdmin等を使用して、MODxのDBへ投入
-　(phpMyAdminならSQLのフォームを開いて、コピー&ペースト、「実行」で投入できます。)
+1.「DAAAH.sql」をphpMyAdmin等を使用して、MODXのDBへ投入
+(phpMyAdminならSQLのフォームを開いて、コピー&ペースト、「実行」で投入できます。)
 
 2.モジュールを新規作成、必ずモジュール名は「DAAAH」と名付けてください。
 
-3.モジュールのフォームへ「module_DAAAH.php」の中身をコピー&ペーストして
-　保存してください。
+3.モジュールのフォームへ「module_DAAAH.php」の中身をコピー&ペーストして保存してください。
 
-4.プラグインを新規作成、プラグイン名称は何でもいいんですが「DAAAH」が
-　分かりやすいかも。
+4.プラグインを新規作成、プラグイン名称はなんでもいいですが「DAAAH」が分かりやすいかも。
 
-5.プラグインのフォームへ「plugin_DAAAH.php」の中身をコピー&ペーストして
-　保存してください。
+5.プラグインのフォームへ「plugin_DAAAH.php」の中身をコピー&ペーストして保存してください。
 
 6.プラグインのシステムイベントは
 「OnDocFormSave」「OnDocFormRender」「OnLoadWebPageCache」
 「OnLoadWebDocument」「OnDocFormDelete」に設定してください。
 
-7.「plugins」-「daaah」フォルダにある「config.inc.php」を使用環境に
-　合わせて、設定してください。
-　※設定方法は後述
+7.「plugins」-「daaah」フォルダにある「config.inc.php」を使用環境に合わせて、設定してください。※設定方法は後述
 
 8.「plugins」-「daaah」フォルダを/assets/plugins/に配置してください。
 
-9.使用できるようになりました。ひとまず、admin権限でログインし、
-　トップページの編集画面を開き、画面下部の承認のドロップダウンを操作して
-　ワークフローのすべてで「承認する」を選択して保存してください。
-　トップページの一般公開の承認を行うことができました。
+9.使用できるようになりました。ひとまず、admin権限でログインし、トップページの編集画面を開き、画面下部の承認のドロップダウンを操作してワークフローのすべてで「承認する」を選択して保存してください。
+トップページの一般公開の承認を行うことができました。
 
 
-※dittoとWayfinderを使用している場合、承認済みコンテンツの内容をみるため
-　使用するテーブルを変更するようにしてください。
-　(ホントはそういうのはアレなのは分かっていますが、とりあえず
-　 現バージョンでは、勘弁してください。)
+※dittoとWayfinderを使用している場合、承認済みコンテンツの内容をみるため使用するテーブルを変更するようにしてください。
+　(ホントはそういうのはアレなのは分かっていますが、とりあえず現バージョンでは、勘弁してください。)
 
 Wayfinder(ver2.0)の場合
 ---------------------------
 /assets/snippets/wayfinder/wayfinder.inc.php
 
-316行目
 $tblsc = $modx->getFullTableName("site_content");
 　↓
 $tblsc = $modx->getFullTableName("approvaled_site_content");
 
-439行目
 $tb1 = $modx->getFullTableName("site_tmplvar_contentvalues");
 　↓
 $tb1 = $modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
@@ -74,20 +70,17 @@ Ditto(ver2.1.0)の場合
 ---------------------------
 /assets/snippets/ditto/classes/ditto.class.inc.php
 
-902行目
-$tblsc= $modx->getFullTableName("site_content");
+$modx->getFullTableName("site_content");
 　↓
-$tblsc = $modx->getFullTableName("approvaled_site_content");
+$modx->getFullTableName("approvaled_site_content");
 
-982行目
-$tblsc= $modx->getFullTableName("site_content");
+$modx->getFullTableName("site_content");
 　↓
-$tblsc = $modx->getFullTableName("approvaled_site_content");
+$modx->getFullTableName("approvaled_site_content");
 
-762行目
-$tb1 = $modx->getFullTableName("site_tmplvar_contentvalues");
+$modx->getFullTableName("site_tmplvar_contentvalues");
 　↓
-$tb1 = $modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
+$modx->getFullTableName("approvaled_site_tmplvar_contentvalues");
 
 
 
@@ -124,7 +117,7 @@ $level_and_mes [ 1 ] = "承認";
 $a_approval_string [ 0 ] = "承認しない";
 $a_approval_string [ 1 ] = "承認する";
 
-各部門で編集できるページはMODx標準の「ユーザー」-「管理画面のアクセス許可」で
+各部門で編集できるページはMODX標準の「ユーザー」-「管理画面のアクセス許可」で
 設定してください。
 各部門の編集ユーザーと上長は、同じページをアクセスできるように設定してください。
 これにより各部門ごとに編集できるページを設定することができます。
@@ -179,7 +172,7 @@ $a_approval_string [ 1 ] = "承認する";
 
 ■ライセンスについて
 ------------------------------------------------------------------------
-当然ながらMODxのGPLに則り、「DAAAH」モジュール&プラグインはGPLで公開します。
+当然ながらMODXのGPLに則り、「DAAAH」モジュール&プラグインはGPLで公開します。
 よって、利用に関して特別な費用は発生しません。
 自由に使ってください。
 ただし、利用に関して生じる不具合につきましては、当方で責任を持つことは
