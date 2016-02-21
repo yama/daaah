@@ -130,6 +130,23 @@ switch ($e->name)
 			// 「公開しない」にリセットする
 			if (!$permission) $s_approval = '0';
 
+
+			//2011.05.07 t.k.
+			if($docid != 0)
+			{ // コンテンツIDを持っていること
+				$his_result = $modx->db->select('*', $tbl_approval_logs, "id='$docid'");
+				//DBへ承認済みデータの有無を確認
+			}
+			if( $modx->db->getRecordCount( $his_result ) < 1 )
+			{ //初回書き込み時は、強制的にTRUEにする。
+				$app_result = 'TRUE';
+				$permission = 'TRUE';
+				$apvl_level = 1;
+				$fields['approval'] = 1;
+				//$s_approval = 1;
+
+			}
+
 			// 承認状況更新
 			// DBにレコードがあるかどうか
 			if (isset($a_approval[$pub_level]))
@@ -383,12 +400,23 @@ switch ($e->name)
 			<tr style="height: 24px;">
 				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
 				<td>
+<?php
+			if($_SESSION['mgrRole'] == 1 || $_SESSION['mgrRole'] == 3){
+			//ロールがadministratorなら :2011.05.08 t.k.
+?>
 					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
 						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
 						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
 					</select>
 				</td>
 				<td><span class="warning">理由</span></td>
+<?php
+			}else{
+					echo '<input type="hidden" name="approval_and_level' . $pub_level . '" value="0">' . "\n";
+					echo '</td>' . "\n";
+					echo '<td><span class="warning">権限者へのメッセージ</span></td>' . "\n";
+			}
+?>
 				<td>
 					<input name="comment_and_level<?php echo $pub_level?>" type="text" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
 					<img src="<?php echo $_style['icons_tooltip_over']; ?>" onmouseover="this.src='<?php echo $_style['icons_tooltip']     ; ?>';" onmouseout="this.src='<?php echo $_style['icons_tooltip_over']; ?>';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;margin-left:8px;" />
@@ -461,40 +489,41 @@ switch ($e->name)
 	
 	if (isset($_REQUEST['hisid']))
 	{
-		$mode = 'history';
 		$search_table     = $tbl_history;
 		$search_tvs_table = $tbl_contentvalues_history;
+		$publish_history_id = intval($_REQUEST['hisid']);
 	}
 	elseif (isset($_REQUEST['preview_sw']))
 	{
-		$mode = 'un_approval';
 		$search_table     = $tbl_content;
 		$search_tvs_table = $tbl_contentvalues;
+		$publish_history_id = 0;
 	}
 	else
 	{
-		$mode = 'un_approvaled';
 		$search_table     = $tbl_approval_content;
 		$search_tvs_table = $tbl_contentvalues_approval;
+		$publish_history_id = 0;
 	}
 
 	// 履歴データをゲット
 	// ----------------------------------------------------------------
+	// SQL文構築
 	$where = " id='$docid' ";
-	if($mode == 'history')
+	if ( ( $publish_history_id != 0 ) )
 	{
-		$publish_history_id = intval($_REQUEST['hisid']);
-		$where .= " AND editedon='{$publish_history_id}' ";
+		$where .= " AND ";
+		$where .= " editedon='$publish_history_id' ";
 	}
 
 	// SQL発行
 	$result = $modx->db->select('*', $search_table , $where );
 
 	// データ取り出し(1件だけ)
-	if($modx->db->getRecordCount($result ) > 0)
+	if( $modx->db->getRecordCount( $result ) >= 1 )
 	{
 		$doc_data = array();
-		$doc_data = $modx->db->getRow($result);
+		$doc_data = $modx->db->getRow( $result );
 
 		$modx->documentObject['introtext']       = $doc_data['introtext'];
 		$modx->documentObject['content']         = $doc_data['content'];
@@ -527,18 +556,16 @@ switch ($e->name)
 		$modx->documentObject['hidemenu']        = $doc_data['hidemenu'];
 
 		// テンプレート変数読み込み
-		$tbl_tmplvars          = $modx->getFullTableName('site_tmplvars');
-		$tbl_tmplvar_templates = $modx->getFullTableName('site_tmplvar_templates');
-		
-		$sql  = "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
-		$sql .= "FROM {$tbl_tmplvars} tv ";
-		$sql .= "INNER JOIN {$tbl_tmplvar_templates} tvtpl ON tvtpl.tmplvarid = tv.id ";
-		$sql .= "LEFT JOIN {$search_tvs_table}       tvc   ON tvc.tmplvarid   = tv.id AND tvc.contentid = '{$docid}' ";
-		$sql .= "WHERE tvtpl.templateid = '{$doc_data['template']}'";
-		if ($mode == 'history')
-		{
-			$sql .= " AND tvc.editedon = '{$publish_history_id}'";
+		$sql= "SELECT tv.*, IF(tvc.value!='',tvc.value,tv.default_text) as value ";
+		$sql .= "FROM " . $modx->getFullTableName("site_tmplvars") . " tv ";
+		$sql .= "INNER JOIN " . $modx->getFullTableName("site_tmplvar_templates")." tvtpl ON tvtpl.tmplvarid = tv.id ";
+		$sql .= "LEFT JOIN " . $search_tvs_table." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
+		$sql .= "WHERE tvtpl.templateid = '" . $doc_data['template'] . "'";
+		if ( ( $publish_history_id != 0 ) ) {
+			$sql .= " AND ";
+			$sql .= " tvc.editedon = '" . $publish_history_id . "'";
 		}
+		
 		$rs = $modx->db->query($sql);
 		$rowCount = $modx->db->getRecordCount($rs);
 		if ($rowCount > 0)
@@ -559,13 +586,6 @@ switch ($e->name)
 		//キャッシュは強制的にOFF
 		$modx->documentObject['cacheable'] = 0;
 	}
-	else
-	{
-		// トップへ移動
-		header("Location: " . $modx->config['site_url']);
-		exit;
-	}
-
 	break;
 
 	// --------------------------------------------------------------------------------------------------------------------------------
@@ -584,16 +604,26 @@ switch ($e->name)
 	$deletedon = $doc_data['deletedon'];
 
 	// 承認保管箱に当該のデータが存在するか?
-	$result = $modx->db->select('*', $tbl_approval_content, " id='$docid' ");
+	// SQL文構築
+	$sql_string_where  = "";
+	$sql_string_where .= " id='$docid' ";
+
+	// SQL発行
+	$result = $modx->db->select('*', $tbl_approval_content , $sql_string_where );
 
 	// 存在する場合、UPDATE
-	if($modx->db->getRecordCount( $result ) > 0)
-	{
-		unset($sql);
-		$sql['published'] = $published;
-		$sql['deleted']   = $deleted;
-		$sql['deletedon'] = $deletedon;
-		$modx->db->update($sql, $tbl_approval_content, " id='{$docid}' " );
+	if( $modx->db->getRecordCount( $result ) >= 1 ) {
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " id='$docid' ";
+
+		$sql_array_update = array(
+				'published'	=> $published,
+				'deleted'	=> $deleted,
+				'deletedon'	=> $deletedon
+				);
+		// SQL発行
+		$modx->db->update( $sql_array_update , $tbl_approval_content , $sql_string_where );
 	}
 
 	$children_id = $e->params['children'];
@@ -611,16 +641,26 @@ switch ($e->name)
 		$deletedon = $doc_data['deletedon'];
 
 		// 承認保管箱に当該のデータが存在するか?
-		$result = $modx->db->select('*', $tbl_approval_content , " id='{$process_id}'");
+		// SQL文構築
+		$sql_string_where  = "";
+		$sql_string_where .= " id='$process_id' ";
+
+		// SQL発行
+		$result = $modx->db->select('*', $tbl_approval_content , $sql_string_where );
 
 		// 存在する場合、UPDATE
-		if( $modx->db->getRecordCount($result) > 0)
-		{
-			unset($sql);
-			$sql['published'] = $published;
-			$sql['deleted']   = $deleted;
-			$sql['deletedon'] = $deletedon;
-			$modx->db->update($sql, $tbl_approval_content, " id='{$process_id}'");
+		if( $modx->db->getRecordCount( $result ) >= 1 ) {
+			// SQL文構築
+			$sql_string_where  = "";
+			$sql_string_where .= " id='$process_id' ";
+
+			$sql_array_update = array(
+					'published'	=> $published,
+					'deleted'	=> $deleted,
+					'deletedon'	=> $deletedon
+					);
+			// SQL発行
+			$modx->db->update( $sql_array_update , $tbl_approval_content , $sql_string_where );
 		}
 		next ($children_id);
 	}
