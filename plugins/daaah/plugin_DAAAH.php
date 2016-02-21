@@ -325,7 +325,7 @@ switch ($e->name)
 	}
 
 	// データ取り出し
-	$s_history  = '<div class="split"></div>';
+	$s_history  = '<div class="split" style="margin:8px 0"></div>';
 	$s_history .= '<span class="warning">現在の承認状況</span>';
 	$s_history .= '<ul>';
 	for($count = 0 ; $count < $approval_level ; $count ++ )
@@ -341,7 +341,7 @@ switch ($e->name)
 	{ // 新規コンテンツでは表示しない
 		if( $modx->db->getRecordCount( $his_result ) >= 1 )
 		{
-			$s_history .= '<div class="split"></div>';
+			$s_history .= '<div class="split" style="margin:8px 0"></div>';
 			$s_history .= '<span class="warning">承認履歴</span>';
 			$s_history .= '<ul>';
 			while($row = $modx->db->getRow($his_result))
@@ -362,6 +362,7 @@ switch ($e->name)
 
 	ob_start();
 ?>
+<div class="section">
 <div class="sectionHeader">承認</div>
 <div class="sectionBody">
 	<div style="width:100%">
@@ -404,7 +405,6 @@ switch ($e->name)
 <?php echo $s_history ?>
 
 	</div>
-</div><!-- end .sectionBody -->
 <?php
 //	$output = ob_get_clean(); // 次のバックアップ処理を行わないならコメントアウトを取る
 
@@ -434,14 +434,9 @@ switch ($e->name)
 
 //	ob_start(); // 前段の承認処理を行わないならコメントアウトを取る
 ?>
-<div class="subTitle" style="width:100%">
-	<span class="right">ドキュメントの更新履歴/差分表示</span>
-
-	<table cellpadding="0" cellspacing="0" class="actionButtons">
-		<tr>
-			<td id="Button5__"><a href="<?php echo "index.php?a=112&id=$module_id&docid=$docid&hisid=$publish_history_id"; ?>"><img src="<?php echo $style_path; ?>icons/next.gif" align="absmiddle" /> 編集中ドキュメントの更新履歴/差分表示</a></td>
-		</tr>
-	</table>
+<div class="actionButtons">
+<a href="<?php echo "index.php?a=112&id=$module_id&docid=$docid&hisid=$publish_history_id"; ?>"><img src="<?php echo $style_path; ?>icons/next.gif" align="absmiddle" /> 編集中ドキュメントの更新履歴/差分表示</a></div>
+</div><!-- end .sectionBody -->
 </div>
 <?php
 
