@@ -37,23 +37,19 @@ $tbl_contentvalues          = $modx->getFullTableName('site_tmplvar_contentvalue
 $tbl_user_roles             = $modx->getFullTableName('user_roles');                           // ユーザーグループテーブル
 $tbl_site_modules           = $modx->getFullTableName('site_modules');                         // モジュールテーブル
 
-$permission = $modx->hasPermission('publish_document');
-$now_role   = $_SESSION['mgrRole'];
-
-
 	// ----------------------------------------------------------------
 	// 処理すべきレベルのON/OFFコントロール
 	// ----------------------------------------------------------------
 	$level_onoff = array();
 	//ロールIDを添え字1～3で指定し、中が1ならそのレベルでのアクセスとなる。
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	for ( $count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 	{
-		$check_role = explode( '/' , $level_and_role[$count + 1]);
+		$check_role = explode( '/' , $conf['level_and_role'][$count+1]);
 		$level_onoff[$count + 1] = 0;
 		for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
 		{
 			// 当該のレベルに属するRoleの場合はON
-			if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
+			if($check_role[$chk_count] == $_SESSION['mgrRole'] ) $level_onoff[$count + 1 ] = 1;
 		}
 	}
 	
@@ -64,17 +60,17 @@ if($_REQUEST['mode'] == 'upd')
 	
 	$docid = $_REQUEST['docid'];
 	// 承認状態確認
-	$app_result = checkApprovalStatus($docid , $approval_level);
+	$approvalStatus = checkApprovalStatus($docid , $conf['approval_level']); // true|false
 	
 	// 承認処理  -- 開始
 	$approval_change_flag = 0;
 	
-	for ( $count = 0 ; $count < $approval_level ; $count ++ )
+	for ( $count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 	{ 
 		$pub_level        = $count + 1;
 		$approval_value   = 0;
 		$record_exit_flag = 0;
-		if(($level_onoff[$pub_level] == 1) || (!$permission))
+		if(($level_onoff[$pub_level] == 1) || (!$modx->hasPermission('publish_document')))
 		{
 			// フォームから値を取得
 			$form_name  = 'approval_and_level' . $pub_level;
@@ -83,7 +79,7 @@ if($_REQUEST['mode'] == 'upd')
 			$s_comment  = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '';
 			// 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
 			// 「承認しない」にリセットする
-			if(!$permission) $s_approval = '0';
+			if(!$modx->hasPermission('publish_document')) $s_approval = '0';
 			
 			// 承認状況更新
 			// DBにレコードがあるかどうか 2011.05.08 t.k. $s_approvalの修正
@@ -95,7 +91,7 @@ if($_REQUEST['mode'] == 'upd')
 				unset($sql);
 			}
 			
-			if($permission)
+			if($modx->hasPermission('publish_document'))
 			{
 				$approval_value = 0;
 				if(isset($s_approval)) $approval_value = $s_approval;
@@ -111,7 +107,7 @@ if($_REQUEST['mode'] == 'upd')
 					$fields['level']    = $pub_level;
 					$fields['approval'] = $s_approval;
 					$fields['user_id']  = $user_id;
-					$fields['role_id']  = $now_role;
+					$fields['role_id']  = $_SESSION['mgrRole'];
 					$fields['editedon'] = time();
 					$fields['comment']  = $s_comment;
 					$modx->db->insert( $fields , $tbl_approval_logs );
@@ -126,24 +122,23 @@ if($_REQUEST['mode'] == 'upd')
 	
 	$doc_data = $modx->getDocumentObject('id' , $docid );
 	
+	$f = array();
 	// すべて承認されていた場合、ドキュメントを公開設定にする
-	if($app_result && $doc_data['published']==1)
+	if($approvalStatus && $doc_data['published']==1)
 	{
-		$sql['published'] = 1;
-		$sql['deleted']   = 0;
-		$modx->db->update($sql, $tbl_content, " id='{$docid}' ");
-		unset($sql);
+		$f['published'] = 1;
+		$f['deleted']   = 0;
+		$modx->db->update($f, '[+prefix+]site_content', "id='{$docid}'");
 	}
-	elseif(!$app_result)
+	elseif(!$approvalStatus)
 	{
 		// すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
 		//$sql['published'] = 0; 2011.05.08 t.k.
-		$sql['deletedon'] = time();
-		$modx->db->update($sql, $tbl_content, " id='$docid' ");
-		unset($sql);
+		$f['deletedon'] = time();
+		$modx->db->update($f, '[+prefix+]site_content', "id='{$docid}'");
 	}
 	
-	if($app_result)
+	if($approvalStatus)
 	{ // すべての承認を受けた場合のみ処理
 		$introtext       = $modx->db->escape($doc_data['introtext']);
 		$content         = $modx->db->escape($doc_data['content']);
@@ -215,28 +210,17 @@ if($_REQUEST['mode'] == 'upd')
 		$rs_app = $modx->db->query($sql);
 	
 		// テンプレート変数データをゲット
-		$result = $modx->db->select('*', $tbl_contentvalues, " contentid ='{$docid}' ");
-		
-		// データ取り出し
-		$a_tvs = array();
-		$a_tvs_app = array();
-		if( $modx->db->getRecordCount( $result ) >= 1 )
-		{
-			while( $row = $modx->db->getRow( $result ) )
-			{
-				$a_tvs[]     = "('{$row['id']}','{$row['tmplvarid']}','{$row['contentid']}', '{$modx->db->escape($row['value'])}', '{$editedon}')";
-				$a_tvs_app[] = "('{$row['id']}','{$row['tmplvarid']}','{$row['contentid']}', '{$modx->db->escape($row['value'])}')";
-			}
-		}
-	
-		// テンプレート変数登録
-		if(!empty($a_tvs))
+		$rs = $modx->db->select('id,tmplvarid,contentid,value,', '[+prefix+]site_tmplvar_contentvalues', "contentid='{$docid}'");
+		while($f = $modx->db->getRow($rs))
 		{
 			// テンプレート変数履歴に登録
-			$sql = "INSERT INTO {$tbl_contentvalues_history} (id,tmplvarid, contentid, value, editedon) VALUES " . implode(',', $a_tvs);
-			$rs = $modx->db->query($sql);
+			$f['value']   = $modx->db->escape($f['value']);
+			$f['editedon'] = $editedon;
+			$modx->db->insert($f, '[+prefix+]history_of_site_tmplvar_contentvalues');
+			
 			// テンプレート変数(承認済み保管箱)に登録
-			$sql = "REPLACE INTO {$tbl_contentvalues_approval} (id,tmplvarid, contentid, value) VALUES " . implode(',', $a_tvs_app);
+			$tpl = "REPLACE INTO [+prefix+]approvaled_site_tmplvar_contentvalues (id,tmplvarid,contentid,value) VALUES(%s,%s,%s,'%s')";
+			$sql = sprintf($tpl,$f['id'],$f['tmplvarid'],$f['contentid'], $f['value']);
 			$rs = $modx->db->query($sql);
 		}
 	}
@@ -383,7 +367,7 @@ if($modx->db->getRecordCount( $result ) >= 1 )
 
 		// ドロップダウン組み立て
 		$s_drop_down_history .= '<option value="' . $row['editedon'] . '"';
-		if( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected="selected"';
+		if( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected';
 		$s_drop_down_history .= '>';
 		$s_drop_down_history .= mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
 		$s_drop_down_history .= '</option>';
@@ -710,7 +694,7 @@ function goBySelectValueForRolback( selname ) {
 	<div style="width:100%">
 		<?php
 		$docid = $_GET['docid'];
-		for ( $count = 0; $count < $approval_level; $count++ )
+		for ( $count = 0; $count < $conf['approval_level']; $count++ )
 		{
 			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
 		}
@@ -727,16 +711,15 @@ function goBySelectValueForRolback( selname ) {
 			}
 		}
 		
-		$now_role = $_SESSION['mgrRole'];
 		$level_onoff = array();
-		for($count = 0; $count < $approval_level; $count++)
+		for($count = 0; $count < $conf['approval_level']; $count++)
 		{
-			$check_role = explode('/', $level_and_role[$count + 1]);
+			$check_role = explode('/', $conf['level_and_role'][$count+1]);
 			$level_onoff[$count + 1] = 0;
 			for ($chk_count = 0; $chk_count < count($check_role); $chk_count ++ )
 			{
 				// 当該のレベルに属するRoleの場合はON
-				if($check_role[$chk_count] == $now_role ) $level_onoff[$count + 1 ] = 1;
+				if($check_role[$chk_count] == $_SESSION['mgrRole'] ) $level_onoff[$count + 1 ] = 1;
 			}
 		}
 		
@@ -746,7 +729,7 @@ function goBySelectValueForRolback( selname ) {
 		
 		<table width="550" border="0" cellspacing="0" cellpadding="0">
 <?php
-		for ($count = 0; $count < $approval_level; $count ++ )
+		for ($count = 0; $count < $conf['approval_level']; $count ++ )
 		{
 			$pub_level = $count + 1;
 			$approval_value = 0;
@@ -755,15 +738,15 @@ function goBySelectValueForRolback( selname ) {
 			{
 ?>
 			<tr style="height: 24px;">
-				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
+				<td><span class="warning"><?php echo $conf['level_and_mes'][$pub_level]?></span></td>
 				<td>
 <?php
-			if($_SESSION['mgrRole'] == 1 ){
+			if($modx->hasPermission('save_role')){
 			//ロールがadministratorなら :2011.05.08 t.k.
 ?>
 					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
-						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
-						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
+						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected ' : ''; ?>><?php echo $conf['a_approval_string'][0] ?></option>
+						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected ' : ''; ?>><?php echo $conf['a_approval_string'][1] ?></option>
 					</select>
 				</td>
 				<td><span class="warning">理由</span></td>
