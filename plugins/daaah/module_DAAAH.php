@@ -82,12 +82,12 @@ if($_REQUEST['mode'] == 'upd')
 			$form_name  = 'comment_and_level'  . $pub_level;
 			$s_comment  = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '';
 			// 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
-			// 「公開しない」にリセットする
+			// 「承認しない」にリセットする
 			if(!$permission) $s_approval = '0';
 			
 			// 承認状況更新
-			// DBにレコードがあるかどうか
-			if(isset($a_approval[$pub_level]))
+			// DBにレコードがあるかどうか 2011.05.08 t.k. $s_approvalの修正
+			if(isset($s_approval))
 			{
 				$sql = " approval='{$s_approval}' ";
 				$where  = " id='{$docid}' AND level='{$pub_level}' ";
@@ -98,12 +98,12 @@ if($_REQUEST['mode'] == 'upd')
 			if($permission)
 			{
 				$approval_value = 0;
-				if(isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
+				if(isset($s_approval)) $approval_value = $s_approval;
 				
 				if(($s_approval != $approval_value ) || ( $s_comment != ''))
 				{
 					// 承認ステータスに変化があったのでフラグをON
-					if(isset($a_approval[$pub_level]))  $approval_change_flag = 1;
+					if(isset($s_approval))  $approval_change_flag = 1;
 					
 					// 承認履歴更新
 					$user_id            = $modx->getLoginUserID();
@@ -137,7 +137,7 @@ if($_REQUEST['mode'] == 'upd')
 	elseif(!$app_result)
 	{
 		// すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
-		$sql['published'] = 0;
+		//$sql['published'] = 0; 2011.05.08 t.k.
 		$sql['deletedon'] = time();
 		$modx->db->update($sql, $tbl_content, " id='$docid' ");
 		unset($sql);
@@ -560,6 +560,20 @@ if( $publish_diff_data == '')
 // ----------------------------------------------------------------
 
 
+// 
+$result = $modx->db->select('*', $tbl_content , " id='{$docid}' ");
+// 2011.05.07 t.k.
+
+if( $modx->db->getRecordCount( $result ) >= 1 )
+{
+	while( $row = $modx->db->getRow( $result ))
+	{
+		if($row['id'] == $docid){
+			$mess_tpl = $row['template'];
+		}
+	}
+}
+
 // ----------------------------------------------------------------
 // ヘッダ読み込み
 // ----------------------------------------------------------------
@@ -664,7 +678,7 @@ function goBySelectValueForRolback( selname ) {
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
 		<table width="96%" border="0"><tr><td><?php
-			if($doc_data['template'] !== '13') echo 'ここには最後に保存した編集内容をプレビューしています。';
+			if(($mess_tpl > 44 && $mess_tpl < 64) || $mess_tpl == 5 || $mess_tpl == 43 || $mess_tpl == 3 || $mess_tpl == 37 || $mess_tpl == 38 ) echo 'ここには最後に保存した編集内容をプレビューしています。';
 			else                               echo '<strong style="color:#f00;">（注）※この確認画面は、親階層のプレビューです。</strong>';
 												?></td></tr>
 			<tr><td><iframe name="previewnow" frameborder="0" width="100%" style="height:900px;" id="previewnowIframe" src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
@@ -675,10 +689,10 @@ function goBySelectValueForRolback( selname ) {
 	<div class="tab-page" id="tabPreview">
 		<h2 class="tab">公開中プレビュー</h2>
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreview"), previewOlddocument );</script>
-
-		<table width="96%" border="0"><tr><td>ここには<?php echo mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒' , $hisid )?>に承認を受けた内容をプレビューしています。</td></tr>
+<?php $mydata = $modx->getDocumentObject('id',$_GET['docid']);$prm_parent = $mydata['parent']; ?>
+		<table width="96%" border="0"><tr><td>ここには承認を受けた内容をプレビューしています。</td></tr>
 			<tr><td><iframe name="previewpub" frameborder="0" width="100%" style="height:900px;" id="previewIframe"
-			src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid;?>&hisid=<?php echo $_GET['hisid'];?>&manprev=z"></iframe></td></tr>
+			src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $prm_parent;?>&manprev=z"></iframe></td></tr>
 
 		</table>
 	</div><!-- end #tabSettings -->
@@ -743,12 +757,23 @@ function goBySelectValueForRolback( selname ) {
 			<tr style="height: 24px;">
 				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
 				<td>
+<?php
+			if($_SESSION['mgrRole'] == 1 ){
+			//ロールがadministratorなら :2011.05.08 t.k.
+?>
 					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
 						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
 						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
 					</select>
 				</td>
 				<td><span class="warning">理由</span></td>
+<?php
+			}else{
+					echo '<input type="hidden" name="approval_and_level' . $pub_level . '" value="0">' . "\n";
+					echo '</td>' . "\n";
+					echo '<td><span class="warning">権限者へのメッセージ</span></td>' . "\n";
+			}
+?>
 				<td>
 					<input type="text" name="comment_and_level<?php echo $pub_level?>" maxlength="255" value="" class="inputBox" style="width:250px;" onchange="documentDirty=true;" spellcheck="true" />
 					<img src="<?php echo $_style['icons_tooltip_over']; ?>" onmouseover="this.src='<?php echo $_style['icons_tooltip']     ; ?>';" onmouseout="this.src='<?php echo $_style['icons_tooltip_over']; ?>';" alt="承認する場合には｢承認する｣を選択してください。承認しない場合には｢承認しない｣を選択の上、理由も書き添えてください。" onclick="alert(this.alt);" style="cursor:help;margin-left:8px;" />
