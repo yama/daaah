@@ -741,7 +741,7 @@ function goBySelectValueForRolback( selname ) {
 				<td><span class="warning"><?php echo $conf['level_and_mes'][$pub_level]?></span></td>
 				<td>
 <?php
-			if($modx->hasPermission('save_role')){
+			if($modx->hasPermission('settings')){
 			//ロールがadministratorなら :2011.05.08 t.k.
 ?>
 					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
