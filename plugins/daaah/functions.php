@@ -112,17 +112,14 @@ function getApprovalStatus($docid, $approval_level)
 {
 	global $modx;
 	
-	// 多段階承認テーブル
-	$tbl_approval = $modx->getFullTableName('approvals');
-	
 	$a_add_level = array();
 	for ( $count = 0 ; $count < $approval_level ; $count ++ )
 	{
 		$a_add_level[] = ' level=' . ( $count + 1 ) . ' ';
 	}
-	$where = " id='{$docid}' AND  ( " . join(' OR ' , $a_add_level) . ' ) ';
+	$where = sprintf(" id='%s' AND  ( %s ) ", $docid, join(' OR ', $a_add_level));
 	
-	$result = $modx->db->select('*', $tbl_approval , $where);
+	$result = $modx->db->select('*', '[+prefix+]approvals' , $where);
 
 	$a_approval = array();
 	if(isset($_POST))
@@ -148,3 +145,21 @@ function getApprovalStatus($docid, $approval_level)
 	return ( $a_approval );
 }
 
+function getRoleList()
+{
+	global $modx;
+	
+	// ロール一覧を取得
+	$result = $modx->db->select('*', '[+prefix+]user_roles' );
+
+	// データ取り出し
+	$a_role_list = array();
+	if( $modx->db->getRecordCount( $result ) >= 1)
+	{
+		while($row = $modx->db->getRow($result))
+		{
+			$a_role_list[ $row['id'] ] = $row['name'];
+		}
+	}
+	return $a_role_list;
+}

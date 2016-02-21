@@ -61,14 +61,14 @@ $now_role = $_SESSION['mgrRole'];
 if ( $docid != 0 )
 { // 新規コンテンツでは表示しない
 	$a_add_level = array();
-	for($count = 0 ; $count < $approval_level ; $count ++ )
+	for($count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 	{
 		$a_add_level[] = " level=" . ($count + 1) . " ";
 	}
 	$where = implode( " OR " , $a_add_level );
 	$where = " id='{$docid}' AND ( " . $where . ' ) ';
 
-	$result = $modx->db->select('*', $tbl_approval , $where);
+	$result = $modx->db->select('*', '[+prefix+]approvals' , $where);
 
 	// データ取り出し
 	$a_approval = array();
@@ -83,9 +83,9 @@ if ( $docid != 0 )
 
 // 処理すべきレベルのON/OFFコントロール
 $level_onoff = array();
-for($count = 0 ; $count < $approval_level; $count ++)
+for($count = 0 ; $count < $conf['approval_level']; $count ++)
 {
-	$check_role = explode('/' , $level_and_role[$count + 1]);
+	$check_role = explode('/' , $conf['level_and_role'][$count + 1]);
 	$level_onoff[$count + 1] = 0;
 	for($chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
 	{
@@ -107,13 +107,13 @@ switch ($e->name)
 
 	// 承認状態確認
 	// ----------------------------------------------------------------
-	$app_result = checkApprovalStatus($docid , $approval_level);
+	$app_result = checkApprovalStatus($docid , $conf['approval_level']);
 	// ----------------------------------------------------------------
 	// 承認処理  -- 開始
 	// ----------------------------------------------------------------
 	$approval_change_flag = 0;
 
-	for($count = 0 ; $count < $approval_level ; $count ++ )
+	for($count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 	{ 
 		$pub_level = $count + 1;
 		$approval_value = 0;
@@ -134,10 +134,10 @@ switch ($e->name)
 			//2011.05.07 t.k.
 			if($docid != 0)
 			{ // コンテンツIDを持っていること
-				$his_result = $modx->db->select('*', $tbl_approval_logs, "id='$docid'");
+				$rs = $modx->db->select('*', '[+prefix+]approval_logs', "id='$docid'");
 				//DBへ承認済みデータの有無を確認
 			}
-			if( $modx->db->getRecordCount( $his_result ) < 1 )
+			if( $modx->db->getRecordCount( $rs ) < 1 )
 			{ //初回書き込み時は、強制的にTRUEにする。
 				$app_result = 'TRUE';
 				$permission = 'TRUE';
@@ -182,7 +182,7 @@ switch ($e->name)
 					$fields['role_id']  = $now_role;
 					$fields['editedon'] = time();
 					$fields['comment']  = $s_comment;
-					$modx->db->insert($fields, $tbl_approval_logs );
+					$modx->db->insert($fields, '[+prefix+]approval_logs' );
 				}
 			}
 		}
@@ -311,67 +311,52 @@ switch ($e->name)
 	case "OnDocFormRender":
 
 	// 承認処理  -- はじめ
-	// ロール一覧を取得
-	// SQL発行
-	$result = $modx->db->select('*', $tbl_user_roles );
-
-	// データ取り出し
-	$a_role_list = array();
-	if( $modx->db->getRecordCount( $result ) >= 1)
-	{
-		while($row = $modx->db->getRow($result))
-		{
-			$a_role_list[ $row['id'] ] = $row['name'];
-		}
-	}
-
 
 	// 承認履歴をゲット
 	// ----------------------------------------------------------------
+
+	// データ取り出し
+	$s_history  = '<div class="split" style="margin:8px 0"></div>';
+	$s_history .= '<span class="warning">現在の承認状況</span>';
+	$s_history .= '<ul>';
+	for($count = 0 ; $count < $conf['approval_level'] ; $count ++ )
+	{ 
+		$pub_level = $count + 1;
+		$approval_value = 0;
+		if(isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
+		$s_history .= '<li>' . $conf['level_and_mes'][$pub_level] . ':' . $conf['a_approval_string'][ $approval_value ] . '</li>';
+	}
+	$s_history .= '</ul>';
+
 	if($docid != 0)
 	{ // 新規コンテンツでは表示しない
 		$a_add_level = array();
-		for($count = 0 ; $count < $approval_level ; $count ++ )
+		for($count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 		{
 			$a_add_level[] = " level=" . ( $count + 1 ) . " ";
 		}
 		$where = implode( " OR " , $a_add_level );
 		$where = " id='{$docid}' AND ( " . $where . ' ) ';
 		
-		$his_result = $modx->db->select('*', $tbl_approval_logs, $where, " editedon desc ");
-	}
-
-	// データ取り出し
-	$s_history  = '<div class="split" style="margin:8px 0"></div>';
-	$s_history .= '<span class="warning">現在の承認状況</span>';
-	$s_history .= '<ul>';
-	for($count = 0 ; $count < $approval_level ; $count ++ )
-	{ 
-		$pub_level = $count + 1;
-		$approval_value = 0;
-		if(isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
-		$s_history .= '<li>' . $level_and_mes[$pub_level] . ':' . $a_approval_string[ $approval_value ] . '</li>';
-	}
-	$s_history .= '</ul>';
-
-	if($docid != 0)
-	{ // 新規コンテンツでは表示しない
-		if( $modx->db->getRecordCount( $his_result ) >= 1 )
+		$rs = $modx->db->select('*', '[+prefix+]approval_logs', $where, " editedon desc ");
+		if( $modx->db->getRecordCount( $rs ) >= 1 )
 		{
 			$s_history .= '<div class="split" style="margin:8px 0"></div>';
 			$s_history .= '<span class="warning">承認履歴</span>';
-			$s_history .= '<ul>';
-			while($row = $modx->db->getRow($his_result))
+			$s_history .= '<table class="grid">';
+			$a_role_list = getRoleList();
+			while($row = $modx->db->getRow($rs))
 			{
-				$s_history .= '<li>';
-				$s_history .= mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ) . ' : ';
-				$s_history .= $a_role_list [ $row['role_id'] ] . ' : ';
-				$s_history .= $level_and_mes[ $row['level'] ] . ' : ';
-				$s_history .= $a_approval_string[ $row['approval'] ];
-				$s_history .= ' :理由　' . $row['comment'];
-				$s_history .= '</li>';
+				$s_history .= '<tr>';
+				$s_history .= sprintf('<td>%s</td>', mb_strftime( '%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] ));
+				$s_history .= sprintf('<td>%s</td>', $a_role_list[ $row['role_id'] ]);
+				if(1<$conf['approval_level'])
+					$s_history .= sprintf('<td>%s</td>', $conf['level_and_mes'][ $row['level'] ]);
+				$s_history .= sprintf('<td style="background-color:%s;">%s</td>', $row['approval']==0?'#f8cbcb':'#a6f3a6',$conf['a_approval_string'][ $row['approval'] ]);
+				$s_history .= sprintf('<td>%s</td>', $row['comment']);
+				$s_history .= '</tr>';
 			}
-			$s_history .= '</ul>';
+			$s_history .= '</table>';
 		}
 	}
 
@@ -389,24 +374,26 @@ switch ($e->name)
 ?>
 		<table width="550" border="0" cellspacing="0" cellpadding="0">
 <?php
-		for($count = 0 ; $count < $approval_level ; $count ++ )
+		for($count = 0 ; $count < $conf['approval_level'] ; $count ++ )
 		{
 			$pub_level = $count + 1;
-			$approval_value = 0;
-			if ( isset ( $a_approval[$pub_level] ) ) $approval_value = $a_approval[$pub_level];
+			
+			if (isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
+			else                                $approval_value = 0;
+			
 			if ( $level_onoff[$pub_level] == 1 )
 			{
 ?>
 			<tr style="height: 24px;">
-				<td><span class="warning"><?php echo $level_and_mes[$pub_level]?></span></td>
+				<td><span class="warning"><?php echo $conf['level_and_mes'][$pub_level]?></span></td>
 				<td>
 <?php
-			if($_SESSION['mgrRole'] == 1 || $_SESSION['mgrRole'] == 3){
+			if($modx->hasPermission('settings')){
 			//ロールがadministratorなら :2011.05.08 t.k.
 ?>
 					<select name="approval_and_level<?php echo $pub_level; ?>" onchange="documentDirty=true;">
-						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[0] ?></option>
-						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $a_approval_string[1] ?></option>
+						<option value="0"<?php echo ( $approval_value == 0 ) ? ' selected="selected" ' : ''; ?>><?php echo $conf['a_approval_string'][0] ?></option>
+						<option value="1"<?php echo ( $approval_value == 1 ) ? ' selected="selected" ' : ''; ?>><?php echo $conf['a_approval_string'][1] ?></option>
 					</select>
 				</td>
 				<td><span class="warning">理由</span></td>

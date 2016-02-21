@@ -26,7 +26,6 @@ include_once($daaah_path . 'config.inc.php');
 
 if(function_exists("date_default_timezone_set"))date_default_timezone_set("Asia/Tokyo");
 
-$tbl_history                = $modx->getFullTableName('history_of_site_content');              // 履歴テーブル
 $tbl_contentvalues_history  = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');// テンプレート変数履歴テーブル
 $tbl_approval               = $modx->getFullTableName('approvals');                            // 多段階承認テーブル
 $tbl_approval_logs          = $modx->getFullTableName('approval_logs');                        // 多段階承認履歴テーブル
@@ -59,8 +58,6 @@ if($_REQUEST['mode'] == 'upd')
 	// From save_content.processor.php
 	
 	$docid = $_REQUEST['docid'];
-	// 承認状態確認
-	$approvalStatus = checkApprovalStatus($docid , $conf['approval_level']); // true|false
 	
 	// 承認処理  -- 開始
 	$approval_change_flag = 0;
@@ -120,11 +117,14 @@ if($_REQUEST['mode'] == 'upd')
 	// バックアップ処理  -- はじめ
 	// ドキュメントデータを取得
 	
-	$doc_data = $modx->getDocumentObject('id' , $docid );
+	// 承認状態確認
+	$approvalStatus = checkApprovalStatus($docid , $conf['approval_level']); // true|false
+	
+	$documentObject = $modx->getDocumentObject('id' , $docid );
 	
 	$f = array();
 	// すべて承認されていた場合、ドキュメントを公開設定にする
-	if($approvalStatus && $doc_data['published']==1)
+	if($approvalStatus && $documentObject['published']==1)
 	{
 		$f['published'] = 1;
 		$f['deleted']   = 0;
@@ -139,111 +139,72 @@ if($_REQUEST['mode'] == 'upd')
 	}
 	
 	if($approvalStatus)
-	{ // すべての承認を受けた場合のみ処理
-		$introtext       = $modx->db->escape($doc_data['introtext']);
-		$content         = $modx->db->escape($doc_data['content']);
-		$pagetitle       = $modx->db->escape($doc_data['pagetitle']);
-		$longtitle       = $modx->db->escape($doc_data['longtitle']);
-		$type            = $doc_data['type'];
-		$description     = $modx->db->escape($doc_data['description']);
-		$alias           = $modx->db->escape($doc_data['alias']);
-		$link_attributes = $modx->db->escape($doc_data['link_attributes']);
-		$isfolder        = $doc_data['isfolder'];
-		$richtext        = $doc_data['richtext'];
-		$published       = $doc_data['published'];
-		$parent          = $doc_data['parent'];
-		$template        = $doc_data['template'];
-		$menuindex       = $doc_data['menuindex'];
-		$searchable      = $doc_data['searchable'];
-		$cacheable       = $doc_data['cacheable'];
-		$createdby       = $doc_data['createdby'];
-		$createdon       = $doc_data['createdon'];
-		$editedby        = $doc_data['editedby'];
-		$editedon        = $doc_data['editedon'];
-		$publishedby     = $doc_data['publishedby'];
-		$publishedon     = $doc_data['publishedon'];
-		$pub_date        = $doc_data['pub_date'];
-		$unpub_date      = $doc_data['unpub_date'];
-		$contentType     = $modx->db->escape($doc_data['contentType']);
-		$contentdispo    = $doc_data['content_dispo'];
-		$donthit         = $doc_data['donthit'];
-		$menutitle       = $modx->db->escape($doc_data['menutitle']);
-		$hidemenu        = $doc_data['hidemenu'];
-		$deleted         = $doc_data['deleted'];
-		$deletedon       = $doc_data['deletedon'];
-		// 履歴に登録
-		$sql = "INSERT INTO $tbl_history (id,introtext,content, pagetitle, longtitle,
-		                                  type, description, alias, link_attributes,
-		                                  isfolder, richtext, published, parent,
-		                                  template, menuindex, searchable, cacheable,
-		                                  createdby, createdon, editedby, editedon,
-		                                  publishedby, publishedon, pub_date, unpub_date,
-		                                  contentType, content_dispo, donthit, menutitle, hidemenu
-		                                  )
-		                           VALUES('{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}',
-		                                  '{$type}', '{$description}', '{$alias}', '{$link_attributes}',
-		                                  '{$isfolder}', '{$richtext}', '{$published}', '{$parent}',
-		                                  '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}',
-		                                  '{$createdby}', {$createdon}, '{$editedby}',
-		                                  {$editedon}, {$publishedby}, {$publishedon}, '{$pub_date}', '{$unpub_date}',
-		                                  '{$contentType}', '{$contentdispo}', '{$donthit}', '{$menutitle}', '{$hidemenu}'
-		                                  )";
-		$rs = $modx->db->query($sql);
+	{ // すべての承認を受けた場合のみ履歴に登録
+		$f = $documentObject;
+		unset($f['id']);
+		unset($f['deletedby']);
+		unset($f['privatemgr']);
+		unset($f['privateweb']);
+		if(isset($f['haskeywords'])) unset($f['haskeywords']);
+		if(isset($f['hasmetatags'])) unset($f['hasmetatags']);
+		$f = $modx->db->escape($f);
+		$modx->db->insert($f,'[+prefix+]history_of_site_content');
 	
 		// 承認保管箱に登録
-		$sql = "REPLACE INTO $tbl_approval_content
-			   (
-				id,introtext,content, pagetitle, longtitle, type, description,
-				alias, link_attributes, isfolder, richtext, published, parent,
-				template, menuindex, searchable, cacheable, createdby, createdon,
-				editedby, editedon, publishedby, publishedon, pub_date, unpub_date,
-				contentType, content_dispo, donthit, menutitle, hidemenu
-				)
-		VALUES
-			   (
-			    '{$docid}','{$introtext}','{$content}', '{$pagetitle}', '{$longtitle}', '{$type}', '{$description}',
-			    '{$alias}', '{$link_attributes}', '{$isfolder}', '{$richtext}', '{$published}', '{$parent}',
-			    '{$template}', '{$menuindex}', '{$searchable}', '{$cacheable}', '{$createdby}', {$createdon},
-			    '{$editedby}', {$editedon}, {$publishedby}, {$publishedon}, '{$pub_date}', '{$unpub_date}',
-			    '{$contentType}', '{$contentdispo}', '{$donthit}', '{$menutitle}', '{$hidemenu}'
-			   )";
-		$rs_app = $modx->db->query($sql);
+		$f = $documentObject;
+		unset($f['deleted']);
+		unset($f['deletedby']);
+		unset($f['deletedon']);
+		unset($f['privatemgr']);
+		unset($f['privateweb']);
+		if(isset($f['haskeywords'])) unset($f['haskeywords']);
+		if(isset($f['hasmetatags'])) unset($f['hasmetatags']);
+		
+		$rs = $modx->db->select('*','[+prefix+]approvaled_site_content', "id='{$docid}'");
+		if(!$modx->db->getRecordCount($rs))
+			$modx->db->insert($f,'[+prefix+]approvaled_site_content');
+		else
+			$modx->db->update($f,'[+prefix+]approvaled_site_content', "id='{$docid}'");
 	
 		// テンプレート変数データをゲット
 		$rs = $modx->db->select('id,tmplvarid,contentid,value,', '[+prefix+]site_tmplvar_contentvalues', "contentid='{$docid}'");
 		while($f = $modx->db->getRow($rs))
 		{
 			// テンプレート変数履歴に登録
-			$f['value']   = $modx->db->escape($f['value']);
-			$f['editedon'] = $editedon;
-			$modx->db->insert($f, '[+prefix+]history_of_site_tmplvar_contentvalues');
+			$f = $modx->db->escape($f);
+			$f['editedon'] = $documentObject['editedon'];
+			$tmplvarid = $f['tmplvarid'];
+			$rs = $modx->db->select('*', '[+prefix+]site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
+			if($modx->db->getRecordCount($rs))
+				$modx->db->update($f, '[+prefix+]history_of_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
+			else
+				$modx->db->insert($f, '[+prefix+]history_of_site_tmplvar_contentvalues');
 			
 			// テンプレート変数(承認済み保管箱)に登録
-			$tpl = "REPLACE INTO [+prefix+]approvaled_site_tmplvar_contentvalues (id,tmplvarid,contentid,value) VALUES(%s,%s,%s,'%s')";
-			$sql = sprintf($tpl,$f['id'],$f['tmplvarid'],$f['contentid'], $f['value']);
-			$rs = $modx->db->query($sql);
+			$rs = $modx->db->select('*', '[+prefix+]approvaled_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
+			if($modx->db->getRecordCount($rs))
+				$modx->db->update($f, '[+prefix+]approvaled_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
+			else
+				$modx->db->insert($f, '[+prefix+]approvaled_site_tmplvar_contentvalues');
 		}
 	}
 	
 	// OnDocFormSaveイベントのときに削除状態のときは承認保管箱も削除状態にする
-	$published = $doc_data['published'];
-	$deleted   = $doc_data['deleted'];
-	$deletedon = $doc_data['deletedon'];
 	
-	if($deleted == 1)
+	if($documentObject['deleted'] == 1)
 	{
 		// 承認保管箱に当該のデータが存在するか?
 		
-		$result = $modx->db->select('*', $tbl_approval_content , " id='{$docid}'");
+		$rs = $modx->db->select('*', '[+prefix+]approvaled_site_content' , " id='{$docid}'");
 		
 		// 存在する場合、UPDATE
-		if($modx->db->getRecordCount($result ) >= 1 )
+		if($modx->db->getRecordCount($rs ) >= 1 )
 		{
-			unset($sql);
-			$sql['published'] = $published;
-			$sql['deleted']   = $deleted;
-			$sql['deletedon'] = $deletedon;
-			$modx->db->update( $sql , $tbl_approval_content , " id='{$docid}'");
+			$f = array();
+			$f['published'] = $documentObject['published'];
+			$f['deleted']   = $documentObject['deleted'];
+			$f['deletedon'] = $documentObject['deletedon'];
+			$modx->db->update( $f , '[+prefix+]approvaled_site_content' , "id='{$docid}'");
 		}
 	}
 	// ----------------------------------------------------------------
@@ -312,17 +273,13 @@ if((!is_numeric($docid))||(!is_numeric($hisid))||($request_err_flag == 1))
 // コンテンツデータをゲット
 // ----------------------------------------------------------------
 
-$result = $modx->db->select('*', $tbl_content , " id='{$docid}' ");
-
 // データ取り出し
-$a_docs = array();
-if( $modx->db->getRecordCount( $result ) >= 1 )
+$result = $modx->db->select('*', '[+prefix+]site_content', "id='{$docid}'");
+if( $modx->db->getRecordCount($result))
 {
-	while( $row = $modx->db->getRow( $result ))
-	{
-		$s_now_page     = $row['content'];
-		$s_now_template = $row['template'];
-	}
+	$row = $modx->db->getRow($result);
+	$s_now_page     = $row['content'];
+	$s_now_template = $row['template'];
 }
 
 // テンプレート変数データをゲット
@@ -333,20 +290,19 @@ $sql .= "INNER JOIN " . $modx->getFullTableName('site_tmplvar_templates')." tvtp
 $sql .= "LEFT JOIN " . $tbl_contentvalues." tvc ON tvc.tmplvarid=tv.id AND tvc.contentid = '" . $docid. "' ";
 $sql .= "WHERE tvtpl.templateid = '" . $s_now_template . "'";
 $sql .= " ORDER BY tvc.tmplvarid ";
+
 $rs = $modx->db->query($sql);
-$rowCount= $modx->db->getRecordCount($rs);
 $tmplvars = array();
-$tmpl_flag = 0;
-if($rowCount > 0)
+if($modx->db->getRow($rs))
 {
 	$tmpl_flag = 1;
-	for ($i= 0; $i < $rowCount; $i++)
+	while($row= $modx->db->getRow($rs))
 	{
-		$row_tvs= $modx->fetchRow($rs);
-		if( $row_tvs['value'] != '') $tmplvars []= "[" . $row_tvs['caption'] . "]" . $row_tvs['value'];
+		if( $row['value'] != '') $tmplvars[]= "[" . $row['caption'] . "]" . $row['value'];
 	}
-	$s_now_page .= implode("\n", $tmplvars);
+	if(0<count($tmplvars)) $s_now_page .= implode("\n", $tmplvars);
 }
+else $tmpl_flag = 0;
 
 
 // 履歴データをゲット
@@ -354,7 +310,7 @@ if($rowCount > 0)
 // コンテンツデータをゲット
 // ----------------------------------------------------------------
 
-$result = $modx->db->select('*', $tbl_history , " id='{$docid}' ", ' editedon desc ');
+$result = $modx->db->select('*', '[+prefix+]history_of_site_content' , " id='{$docid}' ", ' editedon desc ');
 
 // データ取り出し
 $a_docs = array();
@@ -461,23 +417,12 @@ if((isset( $rolesw)) && ( $rolesw == "role"))
 	// ----------------------------------------------------------------
 	if( $tmpl_flag == 1 )
 	{
-		// SQL文構築
-		$sql_string_where  = "";
-		$sql_string_where .= " contentid ='$docid' ";
-		$sql_string_where .= " AND ";
-		$sql_string_where .= " editedon ='$hisid' ";
-
-		// SQL発行
-		$result = $modx->db->select('*', $tbl_contentvalues_history , $sql_string_where );
-
-		// データ取り出し
+		$where  = "contentid='{$docid}' AND editedon='{$hisid}'";
+		$result = $modx->db->select('*', '[+prefix+]history_of_site_tmplvar_contentvalues' , $where);
 		$a_tvs_app = array();
-		if( $modx->db->getRecordCount( $result ) >= 1 )
+		while( $row = $modx->db->getRow( $result ))
 		{
-			while( $row = $modx->db->getRow( $result ))
-			{
-				$a_tvs_app[] = "('" . $row['id'] . "','" . $row['tmplvarid'] . "','" . $row['contentid'] . "', '" . $modx->db->escape($row['value'] ) . "')";
-			}
+			$a_tvs_app[] = sprintf("('%s','%s','%s','%s')",$row['id'],$row['tmplvarid'],$row['contentid'],$modx->db->escape($row['value'] ));
 		}
 
 		// テンプレート変数登録
@@ -505,19 +450,19 @@ $path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 set_include_path(get_include_path() . PATH_SEPARATOR . $path);
 include_once($path . 'Text/Diff.php');
 include_once($path . 'Text/Diff/Renderer/inline.php');
-$php_errormsg = ""; // ignore php5 strict errors
+$php_errormsg = ''; // ignore php5 strict errors
 
 
 // Diffにかける前のお膳立て
 $s_old_page .= $s_old_tvs;
 $s_now_page = strip_tags ( $s_now_page );
 $s_old_page = strip_tags ( $s_old_page );
-$s_now_page = str_replace("\t", "", $s_now_page );
-$s_old_page = str_replace("\t", "", $s_old_page );
-$s_now_page = str_replace("　", "", $s_now_page );
-$s_old_page = str_replace("　", "", $s_old_page );
-$s_now_page = str_replace(" ", "", $s_now_page );
-$s_old_page = str_replace(" ", "", $s_old_page );
+$s_now_page = str_replace("\t", '', $s_now_page );
+$s_old_page = str_replace("\t", '', $s_old_page );
+$s_now_page = str_replace("　", '', $s_now_page );
+$s_old_page = str_replace("　", '', $s_old_page );
+$s_now_page = str_replace(" ", '', $s_now_page );
+$s_old_page = str_replace(" ", '', $s_old_page );
 while ( preg_match('|\n\n|' , $s_now_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_now_page );
 while ( preg_match('|\n\n|' , $s_old_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_old_page );
 
@@ -545,16 +490,14 @@ if( $publish_diff_data == '')
 
 
 // 
-$result = $modx->db->select('*', $tbl_content , " id='{$docid}' ");
+$rs = $modx->db->select('*', $tbl_content , " id='{$docid}' ");
 // 2011.05.07 t.k.
 
-if( $modx->db->getRecordCount( $result ) >= 1 )
+if( $modx->db->getRecordCount( $rs ) >= 1 )
 {
-	while( $row = $modx->db->getRow( $result ))
+	while( $row = $modx->db->getRow( $rs ))
 	{
-		if($row['id'] == $docid){
-			$mess_tpl = $row['template'];
-		}
+		if($row['id'] == $docid) $mess_tpl = $row['template'];
 	}
 }
 
@@ -662,9 +605,12 @@ function goBySelectValueForRolback( selname ) {
 		<script type="text/javascript">tpSettings.addTabPage( document.getElementById("tabPreviewNow"));</script>
 
 		<table width="96%" border="0"><tr><td><?php
-			if(($mess_tpl > 44 && $mess_tpl < 64) || $mess_tpl == 5 || $mess_tpl == 43 || $mess_tpl == 3 || $mess_tpl == 37 || $mess_tpl == 38 ) echo 'ここには最後に保存した編集内容をプレビューしています。';
-			else                               echo '<strong style="color:#f00;">（注）※この確認画面は、親階層のプレビューです。</strong>';
-												?></td></tr>
+			if((44 < $mess_tpl && $mess_tpl < 64) || $mess_tpl == 5 || $mess_tpl == 43 || $mess_tpl == 3 || $mess_tpl == 37 || $mess_tpl == 38 )
+			    echo 'ここには最後に保存した編集内容をプレビューしています。';
+			else
+				echo '<strong style="color:#f00;">（注）※この確認画面は、親階層のプレビューです。</strong>';
+												?>
+			</td></tr>
 			<tr><td><iframe name="previewnow" frameborder="0" width="100%" style="height:900px;" id="previewnowIframe" src="<?php echo $modx->config['site_url'];?>index.php?id=<?php echo $docid; ?>&preview_sw=1&manprev=z"></iframe></td></tr>
 		</table>
 	</div><!-- end #tabPreview -->
