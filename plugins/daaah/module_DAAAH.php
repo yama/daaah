@@ -540,7 +540,7 @@ function goBySelectValueForRolback( selname ) {
         
         <div class="actionButtons" style="margin-top:10px;">
         <?php
-        $_SESSION['itemname'] = htmlspecialchars(stripslashes($doc_data['pagetitle']));
+        $_SESSION['itemname'] = htmlspecialchars(stripslashes($doc_data['pagetitle']),ENT_QUOTES, $modx->config['modx_charset']);
         ?>
         <input type="hidden" name="a" value="112" />
         <input type="hidden" name="id" value="<?php echo $_REQUEST['id']; ?>" />
