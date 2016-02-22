@@ -19,6 +19,8 @@
 
 global $_style, $style_path;
 
+if(!isset($_SERVER['HTTP_REQUEST_TIME'])) $_SERVER['HTTP_REQUEST_TIME'] = time();
+
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 include_once($daaah_path . 'functions.php');
 include_once($daaah_path . 'config.inc.php');
@@ -180,7 +182,7 @@ switch ($e->name)
                     $fields['approval'] = $s_approval;
                     $fields['user_id']  = $user_id;
                     $fields['role_id']  = $now_role;
-                    $fields['editedon'] = time();
+                    $fields['editedon'] = $_SERVER['HTTP_REQUEST_TIME'];
                     $fields['comment']  = $s_comment;
                     $modx->db->insert($fields, '[+prefix+]approval_logs' );
                 }
@@ -204,7 +206,7 @@ switch ($e->name)
         // すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
         unset($sql);
         $sql['published'] = 0;
-        $sql['deletedon'] = time();
+        $sql['deletedon'] = $_SERVER['HTTP_REQUEST_TIME'];
         $modx->db->update($sql, $tbl_content, "id='$docid'" );
     }
     // 承認処理  -- 終わり

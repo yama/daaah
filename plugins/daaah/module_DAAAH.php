@@ -20,6 +20,8 @@ global $modx_textdir;
 global $modx_manager_charset;
 global $modx_lang_attribute;
 
+if(!isset($_SERVER['HTTP_REQUEST_TIME'])) $_SERVER['HTTP_REQUEST_TIME'] = time();
+
 $daaah_path = $modx->config['base_path'] . 'assets/plugins/daaah/';
 include_once($daaah_path . 'functions.php');
 include_once($daaah_path . 'config.inc.php');
@@ -105,7 +107,7 @@ if($_REQUEST['mode'] == 'upd')
                     $fields['approval'] = $s_approval;
                     $fields['user_id']  = $user_id;
                     $fields['role_id']  = $_SESSION['mgrRole'];
-                    $fields['editedon'] = time();
+                    $fields['editedon'] = $_SERVER['HTTP_REQUEST_TIME'];
                     $fields['comment']  = $s_comment;
                     $modx->db->insert( $fields , $tbl_approval_logs );
                 }
@@ -134,7 +136,7 @@ if($_REQUEST['mode'] == 'upd')
     {
         // すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
         //$sql['published'] = 0; 2011.05.08 t.k.
-        $f['deletedon'] = time();
+        $f['deletedon'] = $_SERVER['HTTP_REQUEST_TIME'];
         $modx->db->update($f, '[+prefix+]site_content', "id='{$docid}'");
     }
     
