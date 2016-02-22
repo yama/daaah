@@ -269,8 +269,13 @@ $s_now_page = str_replace("　", '', $s_now_page );
 $s_old_page = str_replace("　", '', $s_old_page );
 $s_now_page = str_replace(" ", '', $s_now_page );
 $s_old_page = str_replace(" ", '', $s_old_page );
-while ( preg_match('|\n\n|' , $s_now_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_now_page );
-while ( preg_match('|\n\n|' , $s_old_page )) $s_old_page = preg_replace('|\n\n|' , "\n" , $s_old_page );
+$s_now_page = str_replace('\\r\\n' , "\n" , $s_now_page );
+$s_old_page = str_replace('\\r\\n' , "\n" , $s_old_page );
+$s_now_page = str_replace("\n\n" , "\n" , $s_now_page );
+$s_old_page = str_replace("\n\n" , "\n" , $s_old_page );
+$s_now_page = trim($s_now_page);
+$s_old_page = trim($s_old_page);
+
 
 $a_now_page = explode ("\n", $s_now_page);
 $a_old_page = explode ("\n", $s_old_page);
@@ -283,7 +288,7 @@ $renderer = new Text_Diff_Renderer_inline();
 
 // Diff結果データ加工
 $publish_diff_data = $renderer->render($diff);
-while ( preg_match('|\n\n|' , $publish_diff_data )) $publish_diff_data = preg_replace('|\n\n|' , "\n" , $publish_diff_data );
+$publish_diff_data = trim($publish_diff_data);
 $publish_diff_data = str_replace("\n", "<br />\n", $publish_diff_data );
 if( $publish_diff_data == '')
 {
