@@ -232,6 +232,7 @@ if((isset( $rolesw)) && ( $rolesw == "role"))
     $f['alias']       = $doc_data['alias'];
     $f['editedon']    = $doc_data['editedon'];
     $f['editedby']    = $doc_data['editedby'];
+    $f = $modx->db->escape($f);
 
     // SQL発行
     $modx->db->update( $f , '[+prefix+]site_content' , "id='{$docid}'" );
