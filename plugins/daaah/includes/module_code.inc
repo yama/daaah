@@ -121,7 +121,7 @@ $sql .= " ORDER BY tvc.tmplvarid ";
 
 $rs = $modx->db->query($sql);
 $tmplvars = array();
-if($modx->db->getRow($rs))
+if($modx->db->getRecordCount($rs))
 {
     $tmpl_flag = 1;
     while($row= $modx->db->getRow($rs))
