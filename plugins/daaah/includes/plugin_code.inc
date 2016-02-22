@@ -325,7 +325,7 @@ switch ($e->name)
         {
             $s_history .= '<div class="split" style="margin:8px 0"></div>';
             $s_history .= '<span class="warning">承認履歴</span>';
-            $s_history .= '<table class="grid">';
+            $s_history .= '<table class="grid" style="margin-bottom:1em;">';
             $a_role_list = getRoleList();
             while($row = $modx->db->getRow($rs))
             {
