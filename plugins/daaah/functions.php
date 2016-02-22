@@ -163,3 +163,11 @@ function getRoleList()
 	}
 	return $a_role_list;
 }
+
+function request_err()
+{
+    global $modx;
+    $msg = '処理を停止しました。本機能は編集画面より呼び出してください。';
+    $modx->webAlert($msg);
+    exit($msg);
+}

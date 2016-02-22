@@ -41,8 +41,6 @@ if($_REQUEST['mode'] == 'upd')
 
 
 
-
-
 $tbl_contentvalues_history  = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');// テンプレート変数履歴テーブル
 $tbl_contentvalues          = $modx->getFullTableName('site_tmplvar_contentvalues');           // テンプレート変数テーブル
 
@@ -55,43 +53,15 @@ $module_id = $modx->db->getValue($result);
 // リクエスト値受け取り
 
 // コンテンツID
-if(isset($_REQUEST['docid']))
-{
-    $docid = intval($_REQUEST['docid']);
-    $request_err_flag = 0;
-}
-else
-{
-    $docid=0;
-    $request_err_flag = 1;
-}
+if(isset($_REQUEST['docid']))  $docid = intval($_REQUEST['docid']);
+else                           request_err();
 
 // 履歴ID
-if(isset($_REQUEST['hisid']))
-{
-    $hisid = intval($_REQUEST['hisid']);
-}
-else
-{
-    $hisid=0;
-    $request_err_flag = 1;
-}
+if(isset($_REQUEST['hisid'])) $hisid = intval($_REQUEST['hisid']);
+else                          request_err();
 
-// ロールバックスイッチ
-if(isset($_REQUEST['rolesw']))
-{
-    $rolesw = $_REQUEST['rolesw'];
-    if($rolesw != 'role') $request_err_flag = 1;
-}
+if(!is_numeric($docid) || !is_numeric($hisid)) request_err();
 
-if(!is_numeric($docid) || !is_numeric($hisid)) $request_err_flag = 1;
-
-if($request_err_flag == 1)
-{
-    $modx->webAlert("処理を停止しました。本機能は編集画面より呼び出してください。");
-    echo "処理を停止しました。本機能は編集画面より呼び出してください。";
-    exit;
-}
 
 // ----------------------------------------------------------------
 // コンテンツのみの差分を読み込みする場合のルーチン -- はじめ
@@ -126,7 +96,7 @@ if($modx->db->getRecordCount($rs))
     $tmpl_flag = 1;
     while($row= $modx->db->getRow($rs))
     {
-        if( $row['value'] != '') $tmplvars[]= sprintf('[%s]%s', $row['caption'], $row['value']);
+        if( $row['value'] != '') $tmplvars[]= sprintf('[*%s*] %s', $row['caption'], $row['value']);
     }
     if(!empty($tmplvars)) $s_now_page .= implode("\n", $tmplvars);
 }
@@ -142,17 +112,9 @@ $result = $modx->db->select('*', '[+prefix+]history_of_site_content' , " id='{$d
 
 // データ取り出し
 $a_docs = array();
-$s_drop_down_history = '';
 while($row = $modx->db->getRow($result))
 {
     $a_docs[$row['editedon']] = $row;
-
-    // ドロップダウン組み立て
-    $s_drop_down_history .= '<option value="' . $row['editedon'] . '"';
-    if( $row['editedon'] == $hisid ) $s_drop_down_history .= ' selected';
-    $s_drop_down_history .= '>';
-    $s_drop_down_history .= mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒'  , $row['editedon'] );
-    $s_drop_down_history .= '</option>';
 }
 
 if(!isset($a_docs[ $hisid ]))
@@ -161,11 +123,29 @@ if(!isset($a_docs[ $hisid ]))
     echo "承認を受けたページデータが存在しません。";
     exit;
 }
-else
+
+$doc_data = $a_docs[$hisid];
+
+if(isset( $_REQUEST['rolesw']))
 {
-    $doc_data = array();
-    $doc_data = $a_docs[ $hisid ];
+    include_once("{$daaah_path}includes/rollback_content.inc");
+    // ロールバックした後は、編集画面へ移動
+    header("Location: index.php?a=27&id={$docid}");
+    exit;
 }
+
+$tpl = '<option value="[+raw_editedon+]" [+selected+]>[+editedon+]</option>';
+$ph = array();
+$s_drop_down_history = '';
+foreach($a_docs as $k=>$v)
+{
+    // ドロップダウン組み立て
+    $ph['raw_editedon'] = $k;
+    $ph['selected']     = ($k == $hisid) ? 'selected' : '';
+    $ph['editedon']     = mb_strftime('%Y年%m月%d日(%a)%H時%M分%S秒',$k );
+    $s_drop_down_history .= $modx->parseText($tpl,$ph);
+}
+
 
 // Diffで比較対照となる過去データ取り出し
 
@@ -183,7 +163,7 @@ $rs = $modx->db->query($sql);
 $tmplvars = array();
 while($row= $modx->db->getRow($rs))
 {
-    $tmplvars[]= sprintf('[%s]%s', $row['caption'], $row['value']);
+    $tmplvars[]= sprintf('[*%s*] %s', $row['caption'], $row['value']);
 }
 if(!empty($tmplvars)) $s_old_tvs = implode("\n", $tmplvars);
 else                  $s_old_tvs = '';
@@ -193,58 +173,6 @@ else                  $s_old_tvs = '';
 // ----------------------------------------------------------------
 
 
-// ----------------------------------------------------------------
-// ロールバックを行う場合のルーチン -- はじめ
-// ----------------------------------------------------------------
-if((isset( $rolesw)) && ( $rolesw == "role"))
-{
-    // 本文データのロールバック
-    // ----------------------------------------------------------------
-
-    // SQL文構築
-
-    $f = array();
-    $f['content']     = $doc_data['content'];
-    $f['pagetitle']   = $doc_data['pagetitle'];
-    $f['longtitle']   = $doc_data['longtitle'];
-    $f['menutitle']   = $doc_data['menutitle'];
-    $f['description'] = $doc_data['description'];
-    $f['alias']       = $doc_data['alias'];
-    $f['editedon']    = $doc_data['editedon'];
-    $f['editedby']    = $doc_data['editedby'];
-    $f = $modx->db->escape($f);
-
-    // SQL発行
-    $modx->db->update( $f , '[+prefix+]site_content' , "id='{$docid}'" );
-
-
-    // テンプレート変数データのロールバック
-    // ----------------------------------------------------------------
-    if( $tmpl_flag == 1 )
-    {
-        $where  = "contentid='{$docid}' AND editedon='{$hisid}'";
-        $result = $modx->db->select('*', '[+prefix+]history_of_site_tmplvar_contentvalues' , $where);
-        $a_tvs_app = array();
-        while( $row = $modx->db->getRow( $result ))
-        {
-            $a_tvs_app[] = sprintf("('%s','%s','%s','%s')",$row['id'],$row['tmplvarid'],$row['contentid'],$modx->db->escape($row['value'] ));
-        }
-
-        // テンプレート変数登録
-        if(!empty($a_tvs_app)) {
-            $sql_app = 'REPLACE INTO '.$tbl_contentvalues.' (id,tmplvarid, contentid, value) VALUES '.implode(',', $a_tvs_app);
-            $rs = $modx->db->query($sql_app);
-        }
-    }
-    
-    // ----------------------------------------------------------------
-    // ロールバックを行う場合のルーチン -- おわり
-    // ----------------------------------------------------------------
-
-    // ロールバックした後は、編集画面へ移動
-    header("Location: index.php?a=27&id={$docid}");
-    exit;
-}
 
 
 // ----------------------------------------------------------------
