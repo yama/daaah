@@ -28,190 +28,25 @@ include_once($daaah_path . 'config.inc.php');
 
 if(function_exists("date_default_timezone_set"))date_default_timezone_set("Asia/Tokyo");
 
-$tbl_contentvalues_history  = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');// テンプレート変数履歴テーブル
-$tbl_approval               = $modx->getFullTableName('approvals');                            // 多段階承認テーブル
-$tbl_approval_logs          = $modx->getFullTableName('approval_logs');                        // 多段階承認履歴テーブル
-$tbl_approval_content       = $modx->getFullTableName('approvaled_site_content');              // コンテンツテーブル(承認済み保管箱)
-$tbl_contentvalues_approval = $modx->getFullTableName('approvaled_site_tmplvar_contentvalues');// テンプレート変数テーブル(承認済み保管箱)
-$tbl_content                = $modx->getFullTableName('site_content');                         // コンテンツテーブル
-$tbl_contentvalues          = $modx->getFullTableName('site_tmplvar_contentvalues');           // テンプレート変数テーブル
-$tbl_user_roles             = $modx->getFullTableName('user_roles');                           // ユーザーグループテーブル
-$tbl_site_modules           = $modx->getFullTableName('site_modules');                         // モジュールテーブル
-
-    // ----------------------------------------------------------------
-    // 処理すべきレベルのON/OFFコントロール
-    // ----------------------------------------------------------------
-    $level_onoff = array();
-    //ロールIDを添え字1～3で指定し、中が1ならそのレベルでのアクセスとなる。
-    for ( $count = 0 ; $count < $conf['approval_level'] ; $count ++ )
+// ----------------------------------------------------------------
+// 処理すべきレベルのON/OFFコントロール
+// ----------------------------------------------------------------
+$level_onoff = array();
+//ロールIDを添え字1～3で指定し、中が1ならそのレベルでのアクセスとなる。
+for ( $count = 0 ; $count < $conf['approval_level'] ; $count ++ )
+{
+    $check_role = explode( '/' , $conf['level_and_role'][$count+1]);
+    $level_onoff[$count + 1] = 0;
+    for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
     {
-        $check_role = explode( '/' , $conf['level_and_role'][$count+1]);
-        $level_onoff[$count + 1] = 0;
-        for ( $chk_count = 0 ; $chk_count < count($check_role) ; $chk_count ++ )
-        {
-            // 当該のレベルに属するRoleの場合はON
-            if($check_role[$chk_count] == $_SESSION['mgrRole'] ) $level_onoff[$count + 1 ] = 1;
-        }
+        // 当該のレベルに属するRoleの場合はON
+        if($check_role[$chk_count] == $_SESSION['mgrRole'] ) $level_onoff[$count + 1 ] = 1;
     }
+}
     
 if($_REQUEST['mode'] == 'upd')
 {
-    // コンテンツ保存時の処理
-    // From save_content.processor.php
-    
-    $docid = $_REQUEST['docid'];
-    
-    // 承認処理  -- 開始
-    $approval_change_flag = 0;
-    
-    for ( $count = 0 ; $count < $conf['approval_level'] ; $count ++ )
-    { 
-        $pub_level        = $count + 1;
-        $approval_value   = 0;
-        $record_exit_flag = 0;
-        if(($level_onoff[$pub_level] == 1) || (!$modx->hasPermission('publish_document')))
-        {
-            // フォームから値を取得
-            $form_name  = 'approval_and_level' . $pub_level;
-            $s_approval = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '0';
-            $form_name  = 'comment_and_level'  . $pub_level;
-            $s_comment  = (isset($_POST[$form_name])) ? $modx->db->escape($_POST[$form_name]) : '';
-            // 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
-            // 「承認しない」にリセットする
-            if(!$modx->hasPermission('publish_document')) $s_approval = '0';
-            
-            // 承認状況更新
-            // DBにレコードがあるかどうか 2011.05.08 t.k. $s_approvalの修正
-            if(isset($s_approval))
-            {
-                $sql = " approval='{$s_approval}' ";
-                $where  = " id='{$docid}' AND level='{$pub_level}' ";
-                $modx->db->update($sql, $tbl_approval, $where);
-                unset($sql);
-            }
-            
-            if($modx->hasPermission('publish_document'))
-            {
-                $approval_value = 0;
-                if(isset($s_approval)) $approval_value = $s_approval;
-                
-                if(($s_approval != $approval_value ) || ( $s_comment != ''))
-                {
-                    // 承認ステータスに変化があったのでフラグをON
-                    if(isset($s_approval))  $approval_change_flag = 1;
-                    
-                    // 承認履歴更新
-                    $user_id            = $modx->getLoginUserID();
-                    $fields['id']       = $docid;
-                    $fields['level']    = $pub_level;
-                    $fields['approval'] = $s_approval;
-                    $fields['user_id']  = $user_id;
-                    $fields['role_id']  = $_SESSION['mgrRole'];
-                    $fields['editedon'] = $_SERVER['HTTP_REQUEST_TIME'];
-                    $fields['comment']  = $s_comment;
-                    $modx->db->insert( $fields , $tbl_approval_logs );
-                }
-            }
-        }
-    }
-    
-    // 承認処理  -- 終わり
-    // バックアップ処理  -- はじめ
-    // ドキュメントデータを取得
-    
-    // 承認状態確認
-    $approvalStatus = checkApprovalStatus($docid , $conf['approval_level']); // true|false
-    
-    $documentObject = $modx->getDocumentObject('id' , $docid );
-    
-    $f = array();
-    // すべて承認されていた場合、ドキュメントを公開設定にする
-    if($approvalStatus && $documentObject['published']==1)
-    {
-        $f['published'] = 1;
-        $f['deleted']   = 0;
-        $modx->db->update($f, '[+prefix+]site_content', "id='{$docid}'");
-    }
-    elseif(!$approvalStatus)
-    {
-        // すべて承認していない状態、かつ新規ドキュメントのときは非公開にする
-        //$sql['published'] = 0; 2011.05.08 t.k.
-        $f['deletedon'] = $_SERVER['HTTP_REQUEST_TIME'];
-        $modx->db->update($f, '[+prefix+]site_content', "id='{$docid}'");
-    }
-    
-    if($approvalStatus)
-    { // すべての承認を受けた場合のみ履歴に登録
-        $f = $documentObject;
-        unset($f['id']);
-        unset($f['deletedby']);
-        unset($f['privatemgr']);
-        unset($f['privateweb']);
-        if(isset($f['haskeywords'])) unset($f['haskeywords']);
-        if(isset($f['hasmetatags'])) unset($f['hasmetatags']);
-        $f = $modx->db->escape($f);
-        $modx->db->insert($f,'[+prefix+]history_of_site_content');
-    
-        // 承認保管箱に登録
-        $f = $documentObject;
-        unset($f['deleted']);
-        unset($f['deletedby']);
-        unset($f['deletedon']);
-        unset($f['privatemgr']);
-        unset($f['privateweb']);
-        if(isset($f['haskeywords'])) unset($f['haskeywords']);
-        if(isset($f['hasmetatags'])) unset($f['hasmetatags']);
-        
-        $rs = $modx->db->select('*','[+prefix+]approvaled_site_content', "id='{$docid}'");
-        if(!$modx->db->getRecordCount($rs))
-            $modx->db->insert($f,'[+prefix+]approvaled_site_content');
-        else
-            $modx->db->update($f,'[+prefix+]approvaled_site_content', "id='{$docid}'");
-    
-        // テンプレート変数データをゲット
-        $rs = $modx->db->select('id,tmplvarid,contentid,value,', '[+prefix+]site_tmplvar_contentvalues', "contentid='{$docid}'");
-        while($f = $modx->db->getRow($rs))
-        {
-            // テンプレート変数履歴に登録
-            $f = $modx->db->escape($f);
-            $f['editedon'] = $documentObject['editedon'];
-            $tmplvarid = $f['tmplvarid'];
-            $rs = $modx->db->select('*', '[+prefix+]site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
-            if($modx->db->getRecordCount($rs))
-                $modx->db->update($f, '[+prefix+]history_of_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
-            else
-                $modx->db->insert($f, '[+prefix+]history_of_site_tmplvar_contentvalues');
-            
-            // テンプレート変数(承認済み保管箱)に登録
-            $rs = $modx->db->select('*', '[+prefix+]approvaled_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
-            if($modx->db->getRecordCount($rs))
-                $modx->db->update($f, '[+prefix+]approvaled_site_tmplvar_contentvalues', "tmplvarid='{$tmplvarid}' AND contentid='{$docid}'");
-            else
-                $modx->db->insert($f, '[+prefix+]approvaled_site_tmplvar_contentvalues');
-        }
-    }
-    
-    // OnDocFormSaveイベントのときに削除状態のときは承認保管箱も削除状態にする
-    
-    if($documentObject['deleted'] == 1)
-    {
-        // 承認保管箱に当該のデータが存在するか?
-        
-        $rs = $modx->db->select('*', '[+prefix+]approvaled_site_content' , " id='{$docid}'");
-        
-        // 存在する場合、UPDATE
-        if($modx->db->getRecordCount($rs ) >= 1 )
-        {
-            $f = array();
-            $f['published'] = $documentObject['published'];
-            $f['deleted']   = $documentObject['deleted'];
-            $f['deletedon'] = $documentObject['deletedon'];
-            $modx->db->update( $f , '[+prefix+]approvaled_site_content' , "id='{$docid}'");
-        }
-    }
-    // ----------------------------------------------------------------
-    // バックアップ処理  -- 終わり
-    // ----------------------------------------------------------------
+    include_once("{$daaah_path}processors/save_content.inc");
     header("Location: index.php?a=3&id={$docid}");
     exit;
 }
@@ -220,18 +55,22 @@ if($_REQUEST['mode'] == 'upd')
 
 
 
+$tbl_contentvalues_history  = $modx->getFullTableName('history_of_site_tmplvar_contentvalues');// テンプレート変数履歴テーブル
+$tbl_contentvalues          = $modx->getFullTableName('site_tmplvar_contentvalues');           // テンプレート変数テーブル
+
 // -------------------------------------------------------------------
 // モジュール「DAAAH」のモジュールID取り出し
 // -------------------------------------------------------------------
-$result = $modx->db->select('id', $tbl_site_modules, " name='DAAAH' ");
+$result = $modx->db->select('id', '[+prefix+]site_modules', "name='DAAAH'");
 $module_id = $modx->db->getValue($result);
 
 // リクエスト値受け取り
-$request_err_flag = 0;
+
 // コンテンツID
 if(isset($_REQUEST['docid']))
 {
     $docid = intval($_REQUEST['docid']);
+    $request_err_flag = 0;
 }
 else
 {
@@ -254,13 +93,12 @@ else
 if(isset($_REQUEST['rolesw']))
 {
     $rolesw = $_REQUEST['rolesw'];
-    if($rolesw != 'role')
-    {
-        $request_err_flag = 1;
-    }
+    if($rolesw != 'role') $request_err_flag = 1;
 }
 
-if((!is_numeric($docid))||(!is_numeric($hisid))||($request_err_flag == 1))
+if(!is_numeric($docid) || !is_numeric($hisid)) $request_err_flag = 1;
+
+if($request_err_flag == 1)
 {
     $modx->webAlert("処理を停止しました。本機能は編集画面より呼び出してください。");
     echo "処理を停止しました。本機能は編集画面より呼び出してください。";
@@ -345,14 +183,6 @@ else
 }
 
 // Diffで比較対照となる過去データ取り出し
-$s_old_page        = $doc_data['content'];
-$s_old_pagetitle   = $doc_data['pagetitle'];
-$s_old_longtitle   = $doc_data['longtitle'];
-$s_old_menutitle   = $doc_data['menutitle'];
-$s_old_description = $doc_data['description'];
-$s_old_alias       = $doc_data['alias'];
-$s_old_editedon    = $doc_data['editedon'];
-$s_old_editedby    = $doc_data['editedby'];
 
 // テンプレート変数データをゲット
 // ----------------------------------------------------------------
@@ -372,7 +202,7 @@ if($rowCount > 0)
 {
     for ($i= 0; $i < $rowCount; $i++)
     {
-        $row_tvs= $modx->fetchRow($rs);
+        $row_tvs= $modx->db->getRow($rs);
         $tmplvars []= "[" . $row_tvs['caption'] . "]" . $row_tvs['value'];
     }
     $s_old_tvs = implode("\n", $tmplvars);
@@ -390,29 +220,21 @@ if((isset( $rolesw)) && ( $rolesw == "role"))
 {
     // 本文データのロールバック
     // ----------------------------------------------------------------
-    $s_old_page = $modx->db->escape($s_old_page);
 
     // SQL文構築
 
-    $sql_string_update  = "";
-    $sql_string_update .= " content='$s_old_page' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " pagetitle='$s_old_pagetitle' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " longtitle='$s_old_longtitle' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " menutitle='$s_old_menutitle' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " description='$s_old_description' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " alias='$s_old_alias' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " editedon='$s_old_editedon' ";
-    $sql_string_update .= ",";
-    $sql_string_update .= " editedby='$s_old_editedby' ";
+    $f = array();
+    $f['content']     = $doc_data['content'];
+    $f['pagetitle']   = $doc_data['pagetitle'];
+    $f['longtitle']   = $doc_data['longtitle'];
+    $f['menutitle']   = $doc_data['menutitle'];
+    $f['description'] = $doc_data['description'];
+    $f['alias']       = $doc_data['alias'];
+    $f['editedon']    = $doc_data['editedon'];
+    $f['editedby']    = $doc_data['editedby'];
 
     // SQL発行
-    $modx->db->update( $sql_string_update , $tbl_content , " id='{$docid}' " );
+    $modx->db->update( $f , '[+prefix+]site_content' , "id='{$docid}'" );
 
 
     // テンプレート変数データのロールバック
@@ -456,7 +278,7 @@ $php_errormsg = ''; // ignore php5 strict errors
 
 
 // Diffにかける前のお膳立て
-$s_old_page .= $s_old_tvs;
+$s_old_page = $modx->db->escape($doc_data['content']);;
 $s_now_page = strip_tags ( $s_now_page );
 $s_old_page = strip_tags ( $s_old_page );
 $s_now_page = str_replace("\t", '', $s_now_page );
@@ -492,7 +314,7 @@ if( $publish_diff_data == '')
 
 
 // 
-$rs = $modx->db->select('*', $tbl_content , " id='{$docid}' ");
+$rs = $modx->db->select('*', '[+prefix+]site_content' , " id='{$docid}' ");
 // 2011.05.07 t.k.
 
 if( $modx->db->getRecordCount( $rs ) >= 1 )
@@ -547,9 +369,6 @@ function goBySelectValueForRolback( selname ) {
 
 </script>
 <br />
-<form name="history" id="contentHistory" method="post" enctype="multipart/form-data" action="index.php">
-<input type="hidden" name="docid" value="<?php echo $docid; ?>" />
-<input type="hidden" name="hisid"  value="<?php echo $hisid; ?>" />
 
 <h1>ドキュメントの更新履歴/差分表示</h1>
 <div class="sectionBody">
@@ -563,6 +382,9 @@ function goBySelectValueForRolback( selname ) {
 
     <!-- General -->
 
+<form name="history" id="contentHistory" method="post" enctype="multipart/form-data" action="index.php">
+<input type="hidden" name="docid" value="<?php echo $docid; ?>" />
+<input type="hidden" name="hisid"  value="<?php echo $hisid; ?>" />
     <div class="tab-page" id="tabGeneral">
         <h2 class="tab">差分</h2>
         <script type="text/javascript">tpSettings.addTabPage(document.getElementById("tabGeneral"));</script>
@@ -599,6 +421,7 @@ function goBySelectValueForRolback( selname ) {
             </td></tr>
         </table>
     </div><!-- end #tabRoleback -->
+</form>
 
 
     <!-- Preview -->
@@ -632,7 +455,6 @@ function goBySelectValueForRolback( selname ) {
 
 </div><!-- end #documentPane -->
 </div><!-- end .sectionBody -->
-</form>
 
 
 <form name="mutate" id="mutate" class="content" method="post" enctype="multipart/form-data" action="index.php">
@@ -648,7 +470,7 @@ function goBySelectValueForRolback( selname ) {
         }
         $where = implode( " OR " , $a_add_level );
         $where = " id='{$docid}' AND ({$where})";
-        $result = $modx->db->select('*', $tbl_approval , $where );
+        $result = $modx->db->select('*', '[+prefix+]approvals' , $where );
         
         $a_approval = array();
         if( $modx->db->getRecordCount( $result ) >= 1 )

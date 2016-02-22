@@ -51,9 +51,6 @@ $tbl_site_modules           = $modx->getFullTableName('site_modules');          
 $result    = $modx->db->select('id', $tbl_site_modules, " name='DAAAH'");
 $module_id = $modx->db->getValue($result);
 
-// 権限確認
-$permission = $modx->hasPermission('publish_document');
-
 // 現在のログインユーザーのロールをセット
 $now_role = $_SESSION['mgrRole'];
 
@@ -120,7 +117,7 @@ switch ($e->name)
         $pub_level = $count + 1;
         $approval_value = 0;
         $record_exit_flag = 0;
-        if(($level_onoff[$pub_level] == 1 ) || (!$permission))
+        if(($level_onoff[$pub_level] == 1 ) || (!$modx->hasPermission('publish_document')))
         {
             // フォームから値を取得
             $form_name  = 'approval_and_level' . $pub_level;
@@ -130,24 +127,25 @@ switch ($e->name)
 
             // 公開権限のない人がOnDocFormSaveに来たとき(ページ内容を編集したとき)は
             // 「公開しない」にリセットする
-            if (!$permission) $s_approval = '0';
+            if (!$modx->hasPermission('publish_document')) $s_approval = '0';
 
 
             //2011.05.07 t.k.
             if($docid != 0)
             { // コンテンツIDを持っていること
-                $rs = $modx->db->select('*', '[+prefix+]approval_logs', "id='$docid'");
+                $rs = $modx->db->select('*', '[+prefix+]approval_logs', "id='{$docid}'");
                 //DBへ承認済みデータの有無を確認
             }
-            if( $modx->db->getRecordCount( $rs ) < 1 )
+            if(!$modx->db->getRecordCount( $rs ))
             { //初回書き込み時は、強制的にTRUEにする。
                 $app_result = 'TRUE';
-                $permission = 'TRUE';
+                $allowAddLog = true;
                 $apvl_level = 1;
                 $fields['approval'] = 1;
                 //$s_approval = 1;
 
             }
+            else $allowAddLog = false;
 
             // 承認状況更新
             // DBにレコードがあるかどうか
@@ -164,7 +162,7 @@ switch ($e->name)
                 $modx->db->insert( $fields , $tbl_approval );
             }
 
-            if ($permission)
+            if ($allowAddLog)
             {
                 $approval_value = 0;
                 if(isset($a_approval[$pub_level])) $approval_value = $a_approval[$pub_level];
@@ -371,7 +369,7 @@ switch ($e->name)
 <div class="sectionBody">
     <div style="width:100%">
 <?php
-    if ($permission)
+    if ($modx->hasPermission('publish_document'))
     {
 ?>
         <table width="550" border="0" cellspacing="0" cellpadding="0">
